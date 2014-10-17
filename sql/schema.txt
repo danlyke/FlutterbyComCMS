@@ -1,0 +1,719 @@
+
+CREATE FUNCTION plpgsql_call_handler () RETURNS OPAQUE AS
+    '/usr/lib/postgresql/lib/plpgsql.so' LANGUAGE 'C';
+
+CREATE TRUSTED PROCEDURAL LANGUAGE 'plpgsql'
+    HANDLER plpgsql_call_handler
+    LANCOMPILER 'PL/pgSQL';
+
+
+CREATE FUNCTION entered_stamp () RETURNS OPAQUE AS
+'    BEGIN
+        IF NEW.entered ISNULL THEN
+	        NEW.entered := ''now'';
+	END IF;
+	IF NEW.updated ISNULL THEN
+		NEW.updated := ''now'';
+	END IF;
+        RETURN NEW;
+    END;
+'LANGUAGE 'plpgsql';
+
+CREATE FUNCTION updated_stamp () RETURNS OPAQUE AS
+'    BEGIN
+	IF NEW.updated ISNULL THEN
+		NEW.updated := ''now'';
+	END IF;
+        RETURN NEW;
+    END;
+' LANGUAGE 'plpgsql';
+
+
+
+CREATE TABLE users (
+  id SERIAL,
+  email text,
+  name text,
+  password text,
+  magiccookie varchar(16),
+  emailcookie varchar(16),
+  entered timestamp,
+  updated timestamp,
+  emailconfirmcode varchar(16),
+  emailverified boolean DEFAULT false,
+  textentryrows int default 16,
+  textentrycols int default 80,
+  homepage_url text,
+  adbanner_url text,
+  lid_url text,
+  bio_text text,
+  bio_texttype INT default 0,
+  weblog_url text,
+  weblog_name text,
+  showemailinnntpversion BOOLEAN DEFAULT false
+);
+CREATE UNIQUE INDEX users_id ON users(id);
+CREATE UNIQUE INDEX usersnames ON users(upper(name));
+
+CREATE TABLE texttypes (
+       id SERIAL,
+       module TEXT,
+       name TEXT
+);
+CREATE UNIQUE INDEX texttypes_id ON texttypes(id);
+INSERT INTO texttypes (module,name) VALUES ('Flutterby::Parse::Text','Text');
+INSERT INTO texttypes (module, name) VALUES ('Flutterby::Parse::HTML', 'HTML');
+
+CREATE FUNCTION truncate_to_day (TIMESTAMP) RETURNS DATE AS '
+DECLARE
+        extractfrom ALIAS FOR $1;
+BEGIN
+        RETURN date_trunc(''day'', extractfrom);
+END;
+' LANGUAGE 'plpgsql'
+WITH (iscachable);
+
+
+CREATE TABLE articlecategories (
+       id SERIAL,
+       name TEXT,
+       templatehtml TEXT,
+       rootdirectory TEXT,
+       filenameformat TEXT
+);
+CREATE UNIQUE INDEX articlecategories_id ON articlecategories(id);
+CREATE UNIQUE INDEX articlecategorynames ON articlecategories (name);
+
+INSERT INTO articlecategories (name) VALUES ('rants and essays');
+INSERT INTO articlecategories (name) VALUES ('forwarded notes from elsewhere');
+INSERT INTO articlecategories (name) VALUES ('book reviews');
+INSERT INTO articlecategories (name) VALUES ('restaurant reviews');
+INSERT INTO articlecategories (name) VALUES ('movie reviews');
+
+UPDATE articlecategories SET rootdirectory='archives/', filenameformat='$(yyyy)_$Mon/$(dd)_$(title)' WHERE id= 1;
+UPDATE articlecategories SET rootdirectory='archives/', filenameformat='$(yyyy)_$Mon/$(dd)_$(title)' WHERE id= 2;
+UPDATE articlecategories SET rootdirectory='reviews/books/', filenameformat='$(title)' WHERE id= 3;
+UPDATE articlecategories SET rootdirectory='reviews/food/', filenameformat='$(title)' WHERE id= 4;
+UPDATE articlecategories SET rootdirectory='reviews/movies/', filenameformat='$(title)' WHERE id= 5;
+
+
+CREATE TABLE articles (
+       id SERIAL,
+       entered TIMESTAMP,
+       updated TIMESTAMP,
+       trackrevisions BOOLEAN DEFAULT FALSE,
+       hasrevisions BOOLEAN DEFAULT FALSE,
+       published BOOLEAN DEFAULT FALSE,
+       timespublished INT DEFAULT '0',
+       title TEXT,
+       text TEXT,
+       texttype INT REFERENCES texttypes(id) DEFAULT '1' ,
+       author_id INT REFERENCES users(id),
+       changedby_id INT REFERENCES users(id),
+       messageid TEXT
+);
+CREATE UNIQUE INDEX articles_id ON articles(id);
+CREATE INDEX articles_by_day ON articles (truncate_to_day(entered));
+CREATE INDEX articles_by_entered ON articles (entered);
+CREATE UNIQUE INDEX articles_messageid ON articles(messageid);
+
+
+CREATE TABLE articleshistory (
+       id SERIAL,
+       PRIMARY KEY (id),
+       entered TIMESTAMP,
+       text TEXT,
+       texttype INT DEFAULT '1' REFERENCES texttypes(id),
+       article_id INT REFERENCES articles(id)
+);
+
+CREATE UNIQUE INDEX articleshistory_id ON articleshistory(id);
+
+CREATE FUNCTION articlehistoryupdate() RETURNS OPAQUE AS
+'
+  BEGIN
+    IF NEW.updated ISNULL OR NEW.updated = OLD.updated THEN
+      NEW.updated = ''now'';
+    END IF;
+
+    IF (OLD.trackrevisions = ''Y'' OR NEW.trackrevisions = ''Y'') 
+      AND (OLD.text != NEW.text OR OLD.texttype != NEW.texttype) THEN
+      NEW.hasrevisions = ''Y'';
+      INSERT INTO articleshistory (entered,text,texttype,article_id)
+        VALUES (OLD.updated, OLD.text, OLD.texttype, NEW.id);
+    END IF;
+    RETURN NEW;
+  END;
+'LANGUAGE 'plpgsql';
+
+
+CREATE TRIGGER articles_entered BEFORE INSERT ON articles 
+  FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
+CREATE TRIGGER articles_updated BEFORE UPDATE ON articles
+  FOR EACH ROW EXECUTE PROCEDURE articlehistoryupdate();
+
+
+CREATE FUNCTION markarticlepublished () RETURNS OPAQUE AS
+'
+  BEGIN
+    IF NEW.article_id != OLD.article_id THEN
+       IF NEW.article_id THEN
+	  UPDATE articles SET articles.timespublished = articles.timespublished+1 WHERE articles.id=NEW.article_id;
+       END IF;
+       IF OLD.article_id THEN
+	  UPDATE articles SET articles.timespublished = articles.timespublished-1 WHERE articles.id=OLD.article_id;
+       END IF;
+    END IF;
+    RETURN NEW;
+  END;
+'LANGUAGE 'plpgsql';
+
+
+
+CREATE TABLE urls
+(
+    id SERIAL,
+    url TEXT,
+    title TEXT,
+    ignoreasreferrer BOOLEAN DEFAULT FALSE,
+    lastupdate TIMESTAMP,
+    lastchecked TIMESTAMP,
+    lastindexed TIMESTAMP,
+    lasthttpstatus INT
+);
+
+CREATE UNIQUE INDEX urls_id ON urls(id);
+
+CREATE TABLE weblogs (
+       id SERIAL,
+       owner INT REFERENCES users(id),
+       title TEXT,
+       subtitle TEXT,
+       description TEXT,
+       url_id INT REFERENCES urls(id)
+);
+
+CREATE UNIQUE INDEX weblogs_id ON weblogs(id);
+
+CREATE TABLE capabilities (
+  weblog_id INT REFERENCES weblogs(id),
+  user_id INT REFERENCES users(id),
+  showcommentsreversed BOOLEAN DEFAULT FALSE,
+  editblogentries BOOLEAN DEFAULT FALSE,
+  editarticles BOOLEAN DEFAULT FALSE,
+  editphotoentries BOOLEAN DEFAULT FALSE,
+  addblogentries BOOLEAN DEFAULT FALSE,
+  addarticles BOOLEAN DEFAULT FALSE,
+  latestcommentread timestamp
+);
+
+CREATE TABLE weblogentries (
+       id SERIAL,
+       weblog INT REFERENCES weblogs(id),
+       commentcount INT DEFAULT '0' NOT NULL,
+       latestcomment TIMESTAMP,
+       primary_url TEXT,
+       enclusure_url TEXT,
+       article_id INT REFERENCES articles(id),
+       ignorepost BOOLEAN DEFAULT false
+);
+
+CREATE UNIQUE INDEX weblogentries_id ON weblogentries(id);
+
+CREATE TABLE weblogads (
+       id SERIAL PRIMARY KEY,
+       text TEXT
+);
+
+CREATE TABLE weblogentryads (
+       weblogentry_id INT REFERENCES weblogentries(id),
+       ad_id INT REFERENCES weblogads(id),
+       startdate TIMESTAMP,
+       enddate TIMESTAMP
+);
+
+CREATE TABLE trackbacks (
+       id SERIAL,
+       entry_id INT REFERENCES weblogentries(id),
+       entered TIMESTAMP,
+       updated TIMESTAMP,
+       checked TIMESTAMP,
+       approved BOOL DEFAULT FALSE,
+       title TEXT,
+       url TEXT,
+       excerpt TEXT
+);
+CREATE UNIQUE INDEX trackbacks_id ON trackbacks(id);
+
+CREATE TRIGGER trackbacks_entered BEFORE INSERT ON trackbacks
+       FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
+CREATE TRIGGER trackbacks_updated BEFORE UPDATE ON trackbacks
+  FOR EACH ROW EXECUTE PROCEDURE updated_stamp();
+CREATE UNIQUE INDEX trackbacks_urls ON trackbacks(url);
+
+CREATE VIEW blogentries AS SELECT
+   weblogentries.id AS id,
+   articles.entered AS entered,
+   articles.updated AS updated,
+   articles.id AS article_id,
+   articles.text AS text,
+   articles.texttype AS texttype,
+   articles.title AS subject,
+   articles.author_id AS author_id,
+   weblogentries.commentcount AS commentcount,
+   weblogentries.latestcomment AS latestcomment,
+   weblogentries.primary_url AS primary_url,
+   weblogentries.enclosure_url AS enclosure_url,
+   weblogentries.ignorepost AS ignorepost
+   FROM weblogentries, articles WHERE weblogentries.article_id = articles.id;
+
+-- CREATE INDEX updated ON weblogentries (updated);
+-- CREATE INDEX partial_entered ON blogentries (substr(entered::text,1,11));
+-- CREATE INDEX latestcomment ON blogentries (latestcomment);
+-- CREATE INDEX primary_url ON blogentries (primary_url);
+
+
+CREATE TABLE weblogcomments (
+       id SERIAL,
+       entry_id INT REFERENCES weblogentries(id),
+       article_id INT REFERENCES articles(id)
+);
+
+CREATE UNIQUE INDEX weblogcomments_id ON weblogcomments(id);
+
+CREATE FUNCTION updatecommentcount () RETURNS OPAQUE AS '
+  BEGIN
+    UPDATE weblogentries SET commentcount=
+      (SELECT COUNT(id) FROM weblogcomments 
+        WHERE weblogcomments.entry_id=NEW.entry_id)
+      WHERE weblogentries.id=NEW.entry_id;
+    UPDATE weblogentries SET latestcomment=
+      (SELECT MAX(entered) FROM weblogcomments,articles 
+        WHERE weblogcomments.entry_id=NEW.entry_id AND weblogcomments.article_id=articles.id)
+      WHERE weblogentries.id=NEW.entry_id;
+    RETURN NEW;
+  END;
+'LANGUAGE 'plpgsql';
+
+CREATE TRIGGER commentcountupdated AFTER INSERT ON weblogcomments 
+  FOR EACH ROW EXECUTE PROCEDURE updatecommentcount();
+
+CREATE VIEW blogcomments AS SELECT
+  weblogcomments.id AS id,
+  articles.entered AS entered,
+  articles.author_id AS author_id,
+  weblogcomments.entry_id AS entry_id,
+  articles.text AS text,
+  articles.texttype AS texttype,
+  articles.updated AS updated,
+  articles.hasrevisions AS edited
+  FROM articles, weblogcomments WHERE weblogcomments.article_id = articles.id;
+   
+
+CREATE VIEW blogcommenthistory AS SELECT
+  articleshistory.id AS id,
+  articleshistory.entered AS entered,
+  articleshistory.text AS text,
+  articleshistory.texttype AS texttype,
+  weblogcomments.id AS comment_id
+FROM articleshistory, weblogcomments WHERE weblogcomments.article_id = articleshistory.article_id;
+
+-- ------------------------------------------------------------
+-- Photo database
+
+CREATE TABLE modelrelease
+(
+    id SERIAL,
+    description TEXT,
+    file TEXT
+);
+
+CREATE UNIQUE INDEX modelrelease_id ON modelrelease(id);
+
+INSERT INTO modelrelease (description,file) VALUES ('No information for this image','noinfo.html');
+INSERT INTO modelrelease (description,file) VALUES ('Full model release','full.html');
+INSERT INTO modelrelease (description,file) VALUES ('Limited release','limited.html');
+INSERT INTO modelrelease (description,file) VALUES ('None believed necessary','na.html');
+INSERT INTO modelrelease (description,file) VALUES ('No release','none.html');
+
+CREATE TABLE people (
+       id SERIAL,
+       user_id INT REFERENCES users (id),
+       name TEXT
+);
+CREATE UNIQUE INDEX people_id ON people(id);
+CREATE UNIQUE INDEX people_user_ids ON people(user_id);
+
+CREATE TABLE photos
+(
+    id SERIAL,
+    taken TIMESTAMP,
+    photographer_id INT REFERENCES people (id),
+    model_release INT DEFAULT 1 REFERENCES modelrelease(id),
+    tech_notes TEXT,
+    directory TEXT,
+    name TEXT,
+    show_on_browse boolean default true,
+    entered TIMESTAMP,
+    updated TIMESTAMP,
+    article_id INT REFERENCES articles(id)
+    location TEXT,
+    camera_position_lattitude DOUBLE PRECISION,
+    camera_position_longitude DOUBLE PRECISION,
+    camera_position_acuracy DOUBLE PRECISION,
+    subject_position_lattitude DOUBLE PRECISION,
+    subject_position_longitude DOUBLE PRECISION,
+    subject_position_acuracy DOUBLE PRECISION,
+);
+CREATE UNIQUE INDEX photos_id ON photos(id);
+CREATE UNIQUE INDEX photos_directory_name ON photos (directory,name);
+
+
+CREATE TRIGGER photos_entered BEFORE INSERT ON photos
+  FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
+CREATE TRIGGER photos_updated BEFORE UPDATE ON photos
+  FOR EACH ROW EXECUTE PROCEDURE updated_stamp();
+
+CREATE TABLE photosizes
+(
+    id SERIAL,
+    photo_id INT REFERENCES photos (id),
+    width INT,
+    height INT,
+    filename TEXT
+);
+CREATE UNIQUE INDEX photosizes_filename ON photosizes (photo_id,filename);
+CREATE UNIQUE INDEX photosizes_id ON photosizes(id);
+
+-- ------------------------------------------------------------
+-- Weblog topics structures
+--
+
+CREATE TABLE articletopics
+(
+    id SERIAL,
+    entered TIMESTAMP,
+    updated TIMESTAMP,
+    topic TEXT
+);
+CREATE UNIQUE INDEX articletopics_id ON articletopics(id);
+CREATE UNIQUE INDEX articletopics_topic ON articletopics (topic);
+CREATE TRIGGER articletopics_entered BEFORE INSERT ON articletopics
+  FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
+CREATE TRIGGER articletopics_updated BEFORE UPDATE ON articletopics
+  FOR EACH ROW EXECUTE PROCEDURE updated_stamp();
+
+
+CREATE TABLE articletopiclinks
+(
+    topic_id INT NOT NULL REFERENCES articletopics(id),
+    article_id INT NOT NULL REFERENCES articles(id)
+);
+CREATE UNIQUE INDEX articletopicentry ON articletopiclinks(topic_id,article_id);
+
+CREATE TABLE articletopicterms
+(
+    id SERIAL,
+    topic_id INT NOT NULL REFERENCES articletopics(id),
+    text TEXT
+);
+CREATE UNIQUE INDEX articletopicterms_id ON articletopicterms(id);
+CREATE UNIQUE INDEX articletopicidterm ON articletopicterms(topic_id,text);
+
+
+CREATE FUNCTION articletopicsondelete() RETURNS OPAQUE AS
+'
+	BEGIN
+		DELETE FROM articletopicterms WHERE topic_id=OLD.id;
+	END;
+'LANGUAGE 'plpgsql';
+
+CREATE FUNCTION articletopicsoninsert() RETURNS OPAQUE AS 
+'
+	DECLARE
+		i INTEGER;
+		s TEXT;
+		src TEXT;
+
+	BEGIN
+		DELETE FROM articletopicterms WHERE topic_id=NEW.id;
+		src = NEW.topic;
+		
+		i = 1;
+		LOOP
+			s = SPLIT_PART(src, ''-'', i);
+			EXIT WHEN s IS NULL;
+			s = RTRIM(LTRIM(s));
+			EXIT WHEN s = '''';
+			INSERT INTO articletopicterms(topic_id,text) VALUES (NEW.id,s);
+			i = i + 1;
+		END LOOP;
+		RETURN i;
+	END;
+' LANGUAGE 'plpgsql';
+CREATE TRIGGER articletopicsondelete AFTER DELETE ON articletopics
+  FOR EACH ROW EXECUTE PROCEDURE articletopicsondelete();
+
+CREATE TRIGGER articletopicsoninsert BEFORE DELETE ON articletopics
+       FOR EACH ROW EXECUTE PROCEDURE articletopicsoninsert();
+
+
+
+--- URLs
+
+
+CREATE UNIQUE INDEX urlsurl ON urls(url);
+
+CREATE TABLE urlsinarticle (
+       id SERIAL,
+       url_id INT REFERENCES urls(id),
+       article_id INT REFERENCES articles(id)
+);
+CREATE UNIQUE INDEX urlsinarticle_id ON urlsinarticle(id);
+CREATE INDEX urlarticles ON urlsinarticle(article_id);
+
+CREATE TABLE urlsinurl (
+       baseurl_id INT REFERENCES urls(id),
+       referenceurl_id INT REFERENCES urls(id)
+);
+CREATE UNIQUE INDEX urlsinurlunique ON urlsinurl(baseurl_id, referenceurl_id);
+CREATE INDEX referenceurls ON urlsinurl(referenceurl_id);
+
+CREATE TABLE weblogentrybacklinks (
+       id SERIAL,
+       weblogentry_id INT REFERENCES weblogentries(id),
+       url_id INT REFERENCES urls(id)
+);
+CREATE UNIQUE INDEX weblogentrybacklinks_id ON weblogentrybacklinks(id);
+CREATE INDEX backlinksentries ON weblogentrybacklinks(weblogentry_id);
+CREATE UNIQUE INDEX backlinksurls ON weblogentrybacklinks(weblogentry_id,url_id);
+
+
+
+
+
+
+CREATE TRIGGER weblogentries_articles_updated AFTER UPDATE ON weblogentries
+  FOR EACH ROW EXECUTE PROCEDURE markarticlepublished ();
+CREATE TRIGGER weblogcomments_articles_updated AFTER UPDATE ON weblogcomments
+  FOR EACH ROW EXECUTE PROCEDURE markarticlepublished();
+CREATE TRIGGER photos_articles_updated AFTER UPDATE ON photos
+  FOR EACH ROW EXECUTE PROCEDURE markarticlepublished();
+
+-- DROP TRIGGER weblogentries_articles_ondel ON weblogentries;
+-- DROP TRIGGER weblogcomments_articles_ondel ON weblogcomments;
+-- DROP TRIGGER photos_articles_ondel ON photos;
+
+
+CREATE FUNCTION markarticleondelete () RETURNS OPAQUE AS
+'
+  BEGIN
+    IF OLD.article_id THEN
+      UPDATE articles SET timespublished = timespublished - 1 WHERE articles.id=OLD.article_id;
+    END IF;
+    RETURN NEW;
+  END;
+'LANGUAGE 'plpgsql';
+
+
+drop function markarticleoninsert() cascade;
+
+CREATE FUNCTION markarticleoninsert () RETURNS OPAQUE AS
+'
+  BEGIN
+    IF (NEW.article_id IS NOT NULL) THEN
+      UPDATE articles SET timespublished = timespublished+1 WHERE articles.id=NEW.article_id;
+    END IF;
+    RETURN NEW;
+  END;
+'LANGUAGE 'plpgsql';
+
+CREATE FUNCTION articleondelete () RETURNS OPAQUE AS
+'
+  BEGIN
+    DELETE FROM articleshistory WHERE article_id = OLD.id;
+    DELETE FROM weblogentries WHERE article_id = OLD.id;
+    DELETE FROM weblogcomments WHERE article_id = OLD.id;
+    DELETE FROM articletoentries WHERE article_id = OLD.id;
+    DELETE FROM articlespublished WHERE article_id = OLD.id;
+    DELETE FROM photos WHERE article_id = OLD.id;
+    DELETE FROM articletopiclinks WHERE article_id = OLD.id;
+    DELETE FROM urlsinarticle WHERE article_id = OLD.id;
+    RETURN NEW;
+  END;
+'LANGUAGE 'plpgsql';
+
+
+
+CREATE TRIGGER articledeletebeforedel  BEFORE DELETE ON articles
+       FOR EACH ROW EXECUTE PROCEDURE articleondelete();
+
+DROP TRIGGER weblogentries_articles_onins ON weblogentries;
+DROP TRIGGER weblogcomments_articles_onins ON weblogcomments;
+DROP TRIGGER photos_articles_onins ON photos;
+
+CREATE TRIGGER weblogentries_articles_onins AFTER INSERT ON weblogentries
+  FOR EACH ROW EXECUTE PROCEDURE markarticleoninsert();
+CREATE TRIGGER weblogcomments_articles_onins AFTER INSERT ON weblogcomments
+  FOR EACH ROW EXECUTE PROCEDURE markarticleoninsert();
+CREATE TRIGGER photos_articles_onins AFTER INSERT ON photos
+  FOR EACH ROW EXECUTE PROCEDURE markarticleoninsert();
+
+
+
+CREATE TRIGGER weblogentries_articles_ondel AFTER DELETE ON weblogentries
+  FOR EACH ROW EXECUTE PROCEDURE markarticleondelete();
+CREATE TRIGGER weblogcomments_articles_ondel AFTER DELETE ON weblogcomments
+  FOR EACH ROW EXECUTE PROCEDURE markarticleondelete();
+CREATE TRIGGER photos_articles_ondel AFTER DELETE ON photos
+  FOR EACH ROW EXECUTE PROCEDURE markarticleondelete();
+
+
+
+
+CREATE TABLE urltypes ( 
+       type_id INT,
+       user_id INT,
+       url_id INT
+);
+CREATE TABLE urlusertypes (
+       id SERIAL,
+       user_id INT,
+       text TEXT,
+       operabookmarkpath TEXT
+);
+CREATE UNIQUE INDEX urlusertypes_id ON urlusertypes(id);
+
+CREATE TABLE articletoentries (
+       article_id INT REFERENCES articles(id),
+       entry_id INT REFERENCES weblogentries(id)
+);
+
+
+
+
+
+CREATE TABLE articlespublished (
+       article_id INT REFERENCES articles(id),
+       category_id INT REFERENCES articlecategories(id),
+       entered TIMESTAMP,
+       updated TIMESTAMP,
+       path TEXT
+);
+
+CREATE UNIQUE INDEX articlespublishedarticlecategory on articlespublished(article_id, category_id);
+CREATE TRIGGER published_articles_onins AFTER INSERT ON articlespublished
+  FOR EACH ROW EXECUTE PROCEDURE markarticleoninsert();
+CREATE TRIGGER published_articles_ondel AFTER DELETE ON articlespublished
+  FOR EACH ROW EXECUTE PROCEDURE markarticleondelete();
+CREATE TRIGGER articlespublished_entered BEFORE INSERT ON articlespublished 
+  FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
+CREATE TRIGGER articlespublished_updated BEFORE UPDATE ON articlespublished 
+  FOR EACH ROW EXECUTE PROCEDURE updated_stamp();
+
+UPDATE articlecategories SET templatehtml='rants_template.html' WHERE id= 1;
+UPDATE articlecategories SET templatehtml='funny_template.html' WHERE id= 2;
+UPDATE articlecategories SET templatehtml='bookreview_template.html' WHERE id= 3;
+UPDATE articlecategories SET templatehtml='foodreview_template.html' WHERE id= 4;
+UPDATE articlecategories SET templatehtml='moviereview_template.html' WHERE id= 5;
+
+
+
+
+
+CREATE TABLE searchwords (
+  id SERIAL,
+  word TEXT
+);
+CREATE UNIQUE INDEX searchwords_id ON searchwords(id);
+
+CREATE INDEX searchwords_idx ON searchwords(word);
+
+CREATE TABLE searchurlwords (
+  url_id INT REFERENCES urls(id),
+  pos INT,
+  word_id INT REFERENCES searchwords(id)
+);
+
+CREATE INDEX search_urls ON searchurlwords(url_id);
+CREATE INDEX search_words ON searchurlwords(word_id);
+
+
+CREATE TABLE wiki (
+       id SERIAL,
+       term TEXT
+);
+CREATE UNIQUE INDEX wiki_id ON wiki(id);
+CREATE UNIQUE INDEX wikiterms ON wiki(upper(term));
+
+
+CREATE TABLE wikientries (
+       id SERIAL,
+       displayorder FLOAT,
+       wiki_id INT REFERENCES wiki(id),
+       article_id INT REFERENCES articles(id)
+);
+CREATE UNIQUE INDEX wikientries_id ON wikientries(id);
+
+--- backlink feed checker
+
+CREATE TABLE feed (
+       id SERIAL PRIMARY KEY,
+       feedname TEXT,
+       webpage_url TEXT,
+       syndication_url TEXT,
+       syndication_type TEXT,
+       last_webpage_check TIMESTAMP,
+       last_syndication_check TIMESTAMP,
+       last_webpage_status TEXT,
+       last_syndication_status TEXT
+);
+
+
+CREATE TABLE feedentrylinks (
+       id SERIAL PRIMARY KEY,
+       entry_id INT REFERENCES weblogentries(id),
+       feed_id INT REFERENCES feed(id),
+       title TEXT,
+       entry_url TEXT,
+       entered TIMESTAMP,
+       updated TIMESTAMP
+);
+
+CREATE UNIQUE INDEX feedentrylinks_entry_url_entry_id ON feedentrylinks(entry_url,entry_id);
+
+CREATE TABLE webmentionlinks (
+       id SERIAL PRIMARY KEY,
+       entry_id INT REFERENCES weblogentries(id),
+       title TEXT,
+       entry_url TEXT,
+       entered TIMESTAMP,
+       updated TIMESTAMP
+);
+
+ALTER TABLE weblogentries ADD COLUMN feedentrylinkcount INT DEFAULT 0;
+ALTER TABLE weblogentries ADD COLUMN latestfeedentrylink TIMESTAMP;
+
+DROP FUNCTION updatefeedentrylinkcount () CASCADE;
+
+CREATE FUNCTION updatefeedentrylinkcount () RETURNS TRIGGER AS '
+  BEGIN
+    UPDATE weblogentries SET feedentrylinkcount=
+      (SELECT COUNT(id) FROM feedentrylinks 
+        WHERE feedentrylinks.entry_id=NEW.entry_id)
+      WHERE weblogentries.id=NEW.entry_id;
+    UPDATE weblogentries SET latestfeedentrylink=
+      (SELECT MAX(feedentrylinks.entered) FROM feedentrylinks
+        WHERE feedentrylinks.entry_id=NEW.entry_id)
+      WHERE weblogentries.id=NEW.entry_id;
+    RETURN NEW;
+  END;
+'LANGUAGE 'plpgsql';
+
+CREATE TRIGGER feedentrylinkcountupdated AFTER INSERT ON feedentrylinks
+  FOR EACH ROW EXECUTE PROCEDURE updatefeedentrylinkcount();
+
+CREATE TRIGGER feedentrylinks_entered BEFORE INSERT ON feedentrylinks 
+  FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
+CREATE TRIGGER feedentrylinks_updated BEFORE UPDATE ON feedentrylinks
+  FOR EACH ROW EXECUTE PROCEDURE articlehistoryupdate();

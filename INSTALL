@@ -1,0 +1,37 @@
+Creating the Database:
+
+    - createuser <username>
+      create databases? n
+      create users? n
+    - createdb <dbname>
+    - psql -f sql/su-schema.txt <dbname>
+    - psql -f sql/schema.txt <dbname> <username>
+
+Setting up the Database:
+
+    - psql <dbname>
+    - insert into users (email, name) values ('email', 'name');
+    - insert into weblogs (owner, title, url) values (1, 'title', 'url');
+    - insert into capabilities
+        (weblog, editblogentries, editarticles, addblogentries,
+	 addarticles) values (1, true, true, true, true);
+    - insert into articles (published, title, text, author_id)
+           VALUES (true, "First Post!", "Slashdot.", 1);
+    - insert into weblogentries (weblog, primary_url, article_id)
+           VALUES (1, 'url', 1);
+	 
+
+* bin/install.pl and fill in the correct information.
+* update apache.conf
+*** FIXME need to make Config.pm proper
+
+Other Notes:
+
+pgsql user must have superuser privs as it needs to create 
+  functions in the 'C' language
+SQL schema has /usr/local/ path hardcoded
+pgsql has a problem if you drop a non-existant function and then later add
+  it and use it in a trigger.  It won't complain until you add the
+  trigger and then it will say the function doesn't exist.  Note it
+  doesn't complain with the initial drop, either.
+
