@@ -19,7 +19,8 @@ sub main($)
     my ($dbh) = @_;
     my $cgi = CGI->new();
 
-    print $cgi->header('text/plain');
+    my $cgi_response = '200 OK';
+    my $cgi_response_text;
 
     if ($cgi->param('source')
         && $cgi->param('target')
@@ -118,22 +119,27 @@ sub main($)
                 }
 
 #                print "$sql\n";
-                print "Success\n";
+                $cgi_response_text = 'Success';
             }
             else
             {
-                print "Didn't find trackback\n";
+                $cgi_response = '400 Bad Request';
+                $cgi_response_text = "Didn't find trackback";
             }
         }
         else
         {
-            print "Malformed target $link\n";
+            $cgi_response = '400 Bad Request';
+            $cgi_response_text = "Malformed target $link\n";
         }
     }
     else
     {
-        print "Bad webmention request\n";
+        $cgi_response = '400 Bad Request';
+        $cgi_response_text = "Bad webmention request, need at least 'source', 'target' and 'vouch'\n";
     }
+    print $cgi->header(-type => 'text/plain', -status => $cgi_response);
+    print "$cgi_response_text\n";
 }
 
 my $dbh = DBI->connect($configuration->{-database},
