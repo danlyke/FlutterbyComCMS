@@ -54,7 +54,7 @@ sub main
                     ."DBI Error: ".$DBI::errstr."\ndollarbang: $!\n";
 	$dbh->{AutoCommit} = 1;
 
-    if ($ENV{REQUEST_METHOD} eq 'POST' && !$cgi->param('!pass'))
+    if ($ENV{REQUEST_METHOD} eq 'POST' && !($cgi->param('!pass') || $cgi->param('!pass1')))
     {
         my @params = $cgi->param();
         open my $logfh, '>>', '/home/danlyke/var/log/webstuff/userinfo.log';
