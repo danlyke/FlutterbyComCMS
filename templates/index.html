@@ -105,6 +105,7 @@ sql="
 SELECT weblogentries.id AS id,
 articles.title AS subject,
 weblogentries.commentcount AS commentcount,
+latestcomment,
 CASE
   WHEN (SELECT COUNT(weblogentrybacklinks.weblogentry_id) 
   FROM weblogentrybacklinks , urls
@@ -130,9 +131,7 @@ ORDER BY latestcomment DESC LIMIT 20
 <h2>Most Recent Comments</h2>
 
 <p><a href="/archives/viewentry.cgi?unread=1">Next Unread
-Comment</a><br><a
-href="news://www.flutterby.com/flutterby.weblogentries">Read as
-News</a></p>
+Comment</a><br>
 
 </th></tr>
 <flutterbyrow>

@@ -75,7 +75,7 @@ sub updateMultipleRecords
 	    $sql .= join(',',
 			 map 
 			 {
-			   "$_=".$dbh->quote($cgi->param('_'.$_.'!'.$record));
+			   "$_=".$dbh->quote(scalar($cgi->param('_'.$_.'!'.$record)));
 			 } grep {defined($cgi->param('_'.$_.'!'.$record))} @$fields);
 	    $sql .= " WHERE $primary=".$dbh->quote($cgi->param('_'.$primary.'!'.$record));
 	  }
@@ -84,10 +84,10 @@ sub updateMultipleRecords
 	    $sql .= join(',',
 			 map 
 			 {
-			   "$fields->{$_}=".$dbh->quote($cgi->param($_.'!'.$record));
+			   "$fields->{$_}=".$dbh->quote(scalar($cgi->param($_.'!'.$record)));
 			 } grep {defined($cgi->param($_.'!'.$record))} keys %$fields);
 	    $sql .= " WHERE $fields->{$primary}="
-	      .$dbh->quote($cgi->param($primary.'!'.$record));
+	      .$dbh->quote(scalar($cgi->param($primary.'!'.$record)));
 	  }
 	else
 	  {
@@ -108,18 +108,18 @@ sub updateRecord
 	$sql = join(',',
 		     map 
 		     {
-		       "$_=".$dbh->quote($cgi->param("_$_"));
+		       "$_=".$dbh->quote(scalar($cgi->param("_$_")));
 		     } grep { defined($cgi->param("_$_")) } @$fields);
-        $where = " WHERE $primary=".$dbh->quote($cgi->param("_$primary"));
+        $where = " WHERE $primary=".$dbh->quote(scalar($cgi->param("_$primary")));
       }
     elsif (ref($fields) eq 'HASH')
       {
 	$sql = join(',',
  		     map 
 		     {
-		       "$fields->{$_}=".$dbh->quote($cgi->param("_$_"));
+		       "$fields->{$_}=".$dbh->quote(scalar($cgi->param("_$_")));
 		     } grep { defined($cgi->param("_$_")) } keys %$fields);
-        $where = " WHERE $fields->{$primary}=".$dbh->quote($cgi->param("_$primary"));
+        $where = " WHERE $fields->{$primary}=".$dbh->quote(scalar($cgi->param("_$primary")));
       }
     else
       {

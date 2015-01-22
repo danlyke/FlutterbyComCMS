@@ -232,7 +232,7 @@ sub GetSqlIfLoginInfo($$)
                     }
                 }
 		
-                $sql = 'SELECT name,value FROM sessiontickets, sessionvalues WHERE sessionvalues.ticket_id=sessiontickets.id AND sessiontickets.session='.$dbh->quote($cgi->param('ticket'));
+                $sql = 'SELECT name,value FROM sessiontickets, sessionvalues WHERE sessionvalues.ticket_id=sessiontickets.id AND sessiontickets.session='.$dbh->quote(scalar($cgi->param('ticket')));
                 my $sth = $dbh->prepare($sql);
                 $sth->execute();
                 my $row;
@@ -264,7 +264,7 @@ sub GetSqlIfLoginInfo($$)
                 'INSERT INTO users (id,name,password,email,emailconfirmcode,magiccookie) VALUES ('
                     .join(',',
                           $user_id,
-                          $dbh->quote($cgi->param('!user')),
+                          $dbh->quote(scalar($cgi->param('!user'))),
                           'encode(digest('
                           .join('||', 
                                 map 
