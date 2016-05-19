@@ -3,6 +3,8 @@ use strict;
 package Flutterby::Parse::Text;
 use base 'Flutterby::Parse::HTML';
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
+
 use HTML::Entities;
 use Flutterby::Parse::HTMLUtil;
 use Flutterby::Util;
@@ -34,7 +36,7 @@ sub FormatString($@)
 	while ($text =~ s/^(.*?\&)//s)
 	  {
 	    $self->{-htmlparser}->parse($1);
-	    $self->{-htmlparser}->parse('amp;') unless ($text =~ /^(\w+|\#\d+);/);
+	    $self->{-htmlparser}->parse('amp;') unless ($text =~ /^(\w+|\#(x[\da-f]|\d+)|);/i);
 	  }
 	$self->{-htmlparser}->parse($text);
       }

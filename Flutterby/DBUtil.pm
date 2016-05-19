@@ -2,6 +2,8 @@
 use strict;
 package Flutterby::DBUtil;
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
+
 use Try::Tiny;
 
 sub escapeToEntities($$@)
@@ -32,6 +34,20 @@ sub escapeToEntities($$@)
         }
     }
     return $t;
+}
+use Encode;
+sub escapeFieldsToEntitiesHash($@)
+{
+    my ($cgi) = shift @_;
+    my %escaped;
+    
+    for my $field (@_)
+    {
+        my $t = decode utf8=>($cgi->param($field));
+        $t =~ s/([\x{80}-\x{10ffff}])/sprintf('&#%d;', ord($1))/eg;
+        $escaped{$field} = $t;
+    }
+    return \%escaped;
 }
 
 

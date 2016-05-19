@@ -30,7 +30,8 @@ sub maineditphoto
         or die DBI::errstr;
 	$dbh->{AutoCommit} = 1;
 	
-    $cgi = new CGI;
+    $cgi = CGI->new();
+    #$cgi->charset('utf-8');
 
     ($userinfo,$loginerror) = Flutterby::Users::CheckLogin($cgi,$dbh);
     if (defined($userinfo) && defined($userinfo->{'id'})) {
@@ -131,12 +132,12 @@ sub maineditphoto
 		
             }
 	    
-            Flutterby::DBUtil::escapeFieldsToEntities($cgi, '_text','_title');
+            my $params = Flutterby::DBUtil::escapeFieldsToEntitiesHash($cgi, '_text','_title');
 	    
             my ($articletitle, $articletext, $articletexttype);
-            $articletitle = $cgi->param('_title');
+            $articletitle = $params->{'_title'};
             $articletitle = '' unless defined($articletitle);
-            $articletext = $cgi->param('_text');
+            $articletext = $params->{'_text'};
             $articletext = '' unless defined($articletext);
             $articletexttype = $cgi->param('_texttype');
             $articletexttype = '1' unless defined($articletexttype);

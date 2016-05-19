@@ -2,6 +2,8 @@
 use strict;
 package Flutterby::Parse::HTMLUtil;
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
+
 
 
 sub new()
@@ -348,7 +350,7 @@ sub isValidSubtag($$)
 		 and defined($self->{-alwaysallowtags}->{$tag}));
 
     return defined($elementsToEntityLists{$tag})
-      and defined($elementsToEntityLists{$tag}->{$subtag})
+        and defined($elementsToEntityLists{$tag}->{$subtag});
   }
 
 

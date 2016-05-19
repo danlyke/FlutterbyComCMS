@@ -87,7 +87,7 @@ while ($row = $sth->fetchrow_hashref)
 		 'dayofweek' => new Flutterby::Parse::DayOfWeek,
 	     },
 	     );
-	print O '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+	print O '<!DOCTYPE html>';
 	$out->setOutput(\*O);
 	$out->output($tree);
 	close O;

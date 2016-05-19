@@ -2,9 +2,12 @@
 use strict;
 package Flutterby::Output::HTMLProcessed;
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
+
 use HTML::Entities;
 use Flutterby::Output::HTML;
 use Flutterby::Tree::Find;
+
 
 
 sub new()
@@ -187,39 +190,40 @@ sub load_next_row($$$$)
     return $row;
 }
 
+use Data::Dumper;
+
 sub process_tag_query()
-  {
+{
     my ($self, $tag, $childinfo) = @_;
     my ($attributes) = $childinfo->[0];
     my ($textconverters) = $self->{-textconverters};
     my ($varlist);
+
     $varlist = $self->{-varlist};
     if (defined($attributes->{'sql'}))
-      {
-          my ($sql,$sth,$row);
-          $sql = $attributes->{'sql'};
-          $sql = $self->{-sqlqueries}->{$attributes->{'sql'}}
-              if (defined($self->{-sqlqueries}->{$attributes->{'sql'}}));
-          $sql = Flutterby::Util::subst($sql, @$varlist);
-          $sth = $self->{-dbh}->prepare($sql) or die $self->{-dbh}->errstr."\n$sql\n";
-          my (%formats);
-          %formats = split(/=>|,/, $attributes->{'format'})
-              if (defined($attributes->{'format'}));
-          $sth->execute or die $sth->errstr."\n$sql";
-          if ($row = load_next_row($sth,$textconverters,\%formats,$self->{-outputhtml}))
-          {
-              my ($formatstack) = $self->{-sql_format_stack};
-              my ($sthstack) = $self->{-sql_sth_stack};
-              push @$formatstack, \%formats;
-              push @$sthstack, $sth;
-              push @$varlist, $row;
-              $self->outputChildren($childinfo);
-              pop @$varlist;
-              pop @$sthstack;
-              pop @$formatstack;
-          }
-      }
-    elsif (defined($attributes->{'variable'}))
+    {
+        my ($sql,$sth,$row);
+        $sql = $attributes->{'sql'};
+        $sql = $self->{-sqlqueries}->{$attributes->{'sql'}}
+            if (defined($self->{-sqlqueries}->{$attributes->{'sql'}}));
+        $sql = Flutterby::Util::subst($sql, @$varlist);
+        $sth = $self->{-dbh}->prepare($sql) or die $self->{-dbh}->errstr."\n$sql\n";
+        my (%formats);
+        %formats = split(/=>|,/, $attributes->{'format'})
+            if (defined($attributes->{'format'}));
+        $sth->execute or die $sth->errstr."\n$sql";
+        if ($row = load_next_row($sth,$textconverters,\%formats,$self->{-outputhtml})) {
+            my ($formatstack) = $self->{-sql_format_stack};
+            my ($sthstack) = $self->{-sql_sth_stack};
+            push @$formatstack, \%formats;
+            push @$sthstack, $sth;
+            push @$varlist, $row;
+            $self->outputChildren($childinfo);
+            pop @$varlist;
+            pop @$sthstack;
+            pop @$formatstack;
+        }
+    } elsif (defined($attributes->{'variable'}))
     {
         my ($v,$i);
         $i = $#$varlist;
@@ -291,20 +295,22 @@ sub postprocess_tag_form()
     my ($usedcgivariables) = $self->{-usedcgivariables};
 
     if (defined($cgi))
-      {
-	foreach ($cgi->param)
-	  {
-	    unless ($_ =~ /^\!/ or defined($usedcgivariables->{$_}))
-	    {
-		my ($t);
-		$t = $cgi->param($_);
-		$cgi->param($_ => $t) if ($t =~ s/\r\n/\n/g);
-		$cgi->param($_ => $t) if ($t =~ s/\&\#13\;\&\#10\;/\&\#10\;/g);
-		&$outputfunc($self,$cgi->hidden($_));
-	    }
-	  }
-      }
-  }
+    {
+        my ($outputfunc) = $self->{-outputfunc};
+
+        foreach ($cgi->param)
+        {
+            unless ($_ =~ /^\!/ or defined($usedcgivariables->{$_}))
+            {
+                my ($t);
+                $t = $cgi->param($_);
+                $cgi->param($_ => $t) if ($t =~ s/\r\n/\n/g);
+                $cgi->param($_ => $t) if ($t =~ s/\&\#13\;\&\#10\;/\&\#10\;/g);
+                &$outputfunc($self,$cgi->hidden($_));
+            }
+        }
+    }
+}
 
 sub process_tag_form()
   {
@@ -505,7 +511,9 @@ sub process_tag_option()
       {
 	$self->outputTag($tag,$attributes,$childinfo);
       }
-  }
+}
+  use Encode;
+  
 sub process_tag_textarea()
   {
     my ($self, $tag, $childinfo) = @_;
@@ -516,7 +524,8 @@ sub process_tag_textarea()
         && defined($attributes->{'name'})
         && defined($self->{-currentcgi}->param($attributes->{'name'})))
     {
-        my $t = $self->{-currentcgi}->param($attributes->{'name'});
+        my $t = decode utf8=>($self->{-currentcgi}->param($attributes->{'name'}));
+#        $t =~ s/([\x{80}-\x{10ffff}])/"&".ord($1).";"/eg;
 #        while ($t =~ /^(.*?)([\x80-\x{ffff}])(.*)$/)
 #        {
 #            $t = sprintf("%s&#%d;%s",$1,ord($2),$3);
@@ -579,7 +588,8 @@ sub outputTag
 	$self->outputChildren($childinfo);
 	&$post($self,$tag,$attributes,$childinfo)
 	  if (defined($post));
-	&$outputfunc($self,"</$tag>");
+	&$outputfunc($self,"</$tag>")
+	    if (lc($tag) ne 'img');
       }
     else
       {
@@ -617,7 +627,8 @@ sub outputTagNoSubst
 	$self->outputChildren($childinfo);
 	&$outputfunc($self,\&$post($self,$tag,$attributes,$childinfo))
 	  if (defined($post));
-	&$outputfunc($self,"</$tag>");
+	&$outputfunc($self,"</$tag>")
+	    if (lc($tag) ne 'img');
       }
     else
       {

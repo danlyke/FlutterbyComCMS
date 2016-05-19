@@ -67,7 +67,7 @@ $dbh->{AutoCommit} = 1;
 	};
 
     my ($categories) = LoadCategories($dbh);
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     ($userinfo,$loginerror) = Flutterby::Users::CheckLogin($cgi,$dbh);
 
@@ -80,44 +80,43 @@ $dbh->{AutoCommit} = 1;
 	    my ($sql);
 	    if ($cgi->param('_text'))
 	    {
-		my ($t) = $cgi->param('_text');
-		$t =~ s/\r//g;
-		$cgi->param('_text' => $t);
+            my ($t) = $cgi->param('_text');
+            $t =~ s/\r//g;
+            $cgi->param('_text' => $t);
 	    }
 	    $terms = ' AND author_id='.$dbh->quote($userinfo->{'id'})
-		unless ($userinfo->{'editblogentries'});
-
+            unless ($userinfo->{'editblogentries'});
+        
 	    
 	    Flutterby::DBUtil::escapeFieldsToEntities($cgi, '_text','_title');
 
 	    $sql = "UPDATE articles SET "
-		.join(',',
-		      map 
-		      {
-			  "$_=".$dbh->quote($cgi->param('_'.$_));
-		      }
-		      ('text','texttype','title'))
-		." WHERE id=".$dbh->quote($cgi->param('_article_id'))
-		.$terms;
+            .join(',',
+                  map
+                  {
+                      "$_=".$dbh->quote($cgi->param('_'.$_));
+                  }
+                  ('text','texttype','title'))
+            ." WHERE id=".$dbh->quote($cgi->param('_article_id'))
+            .$terms;
 	    $dbh->do($sql)
-		|| print $dbh->errstr."\n$sql\n";
-	    
+            || print $dbh->errstr."\n$sql\n";
 
 	    my (%h,@newtopics);
 	    foreach ($cgi->param())
 	    {
-		$h{$1} = 1 if (/^_topic\.(\d+)$/);
-		if (/^_newtopic(\d+)$/ && $cgi->param($_) ne '')
-		{
-		    push @newtopics, $cgi->param($_);
-		    $cgi->param($_ => '');
-		}
+            $h{$1} = 1 if (/^_topic\.(\d+)$/);
+            if (/^_newtopic(\d+)$/ && $cgi->param($_) ne '')
+            {
+                push @newtopics, $cgi->param($_);
+                $cgi->param($_ => '');
+            }
 	    }
 	    my ($sth,$row);
 	    $sql = 'SELECT topic_id FROM articletopiclinks WHERE article_id='
-		.$cgi->param('_article_id');
+            .$cgi->param('_article_id');
 	    $sth = $dbh->prepare($sql)
-		or die $sql."\n".$dbh->errstr;
+            or die $sql."\n".$dbh->errstr;
 	    $sth->execute or die $sth->errstr;
 	    while ($row = $sth->fetchrow_arrayref)
 	    {
@@ -126,30 +125,31 @@ $dbh->{AutoCommit} = 1;
 				$dbh->do("DELETE FROM articletopiclinks WHERE topic_id=$row->[0] AND article_id="
 						 .$cgi->param('_article_id'));
 				$dbh->commit();
+            }
 	    }
 	    foreach (@newtopics)
 	    {
-		$sql = 
-		    'INSERT INTO articletopiclinks (topic_id,article_id) VALUES ('
-			.$_.','.$cgi->param('_article_id').')';
-		unless ($dbh->do($sql))
-		{
-		    # most conceivable error here is "duplicate key",
-		    # which we want to ignore.
-		}
+            $sql = 
+                'INSERT INTO articletopiclinks (topic_id,article_id) VALUES ('
+                .$_.','.$cgi->param('_article_id').')';
+            unless ($dbh->do($sql))
+            {
+                # most conceivable error here is "duplicate key",
+                # which we want to ignore.
+            }
 	    }
 	    if ($cgi->param('_addnewtopic'))
 	    {
-		$sql = 'INSERT INTO articletopics (topic) VALUES ('
-		    .$dbh->quote($cgi->param('_addnewtopic')).')';
-		$dbh->do($sql)
-		    || print STDERR "$sql\n".$dbh->errstr;
-		$sql = 'INSERT INTO articletopiclinks(topic_id, article_id) VALUES ('
-		    .'(SELECT id FROM articletopics WHERE topic='
-			.$dbh->quote($cgi->param('_addnewtopic'))
+            $sql = 'INSERT INTO articletopics (topic) VALUES ('
+                .$dbh->quote($cgi->param('_addnewtopic')).')';
+            $dbh->do($sql)
+                || print STDERR "$sql\n".$dbh->errstr;
+            $sql = 'INSERT INTO articletopiclinks(topic_id, article_id) VALUES ('
+                .'(SELECT id FROM articletopics WHERE topic='
+                .$dbh->quote($cgi->param('_addnewtopic'))
 			    .'),'.$cgi->param('_article_id').')';
-		$dbh->do($sql)
-		    || print STDERR "$sql\n".$dbh->errstr;
+            $dbh->do($sql)
+                || print STDERR "$sql\n".$dbh->errstr;
 	    }
 	}
 	elsif (grep { /^_/ } $cgi->param)
@@ -157,21 +157,21 @@ $dbh->{AutoCommit} = 1;
 	    my ($sql);
 	    my (%h);
 	    $h{'author_id'} = $dbh->quote($userinfo->{'id'});
-
+        
 	    Flutterby::DBUtil::escapeFieldsToEntities($cgi, '_text','_title');
 	    foreach ('text',
-		     'texttype',
-		     'subject',
-		     'category',
-		     'primary_url',
-		     'deleted')
+                 'texttype',
+                 'subject',
+                 'category',
+                 'primary_url',
+                 'deleted')
 	    {
-		$h{$_} = $dbh->quote($cgi->param("_$_"))
-		    if (defined($cgi->param("_$_")));
+            $h{$_} = $dbh->quote($cgi->param("_$_"))
+                if (defined($cgi->param("_$_")));
 	    }
 	    foreach ('_title', '_text', '_texttype')
 	    {
-		print "<p><b>$_</b> undefined</p>\n"
+            print "<p><b>$_</b> undefined</p>\n"
 		    unless defined($cgi->param($_));
 	    }
 	    my ($articleid) =

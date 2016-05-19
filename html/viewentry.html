@@ -29,7 +29,8 @@
 <a href="/long.html">Long version (with comments)</a> |
 <a href="/archives/">Weblog archives</a> |
 <a href="/sitemap.html">Site Map</a> |
-<input type="text" name="search" /><input value="search" type="submit" name="go" /> | <a href="/archives/topics/">Browse Topics</a></p></form>
+<input type="text" name="search" /><input value="search" type="submit" name="go" /> | <a href="/archives/topics/">Browse Topics</a></p>
+</form>
 </div>
 
 <div class="weblogentries">
@@ -161,7 +162,7 @@ $blogcomments_text
 <p>(If anyone ever actually uses Webmention/indie-action to post here, please email me)</p>
 
 <indie-action do="post" with="http://www.flutterby.com/archives/comments/$blogentry_id.html">
-<form style="margin-left: 0;" method="post" accept-charset="UTF-8" action="/archives/viewentry.cgi?id=$blogentry_id">
+<form style="margin-left: 0;" method="post" accept-charset="UTF-8" action="/flutterby_cms/viewentry.cgi?id=$blogentry_id">
 <input type="hidden" name="id" value="$blogentry_id">
 <br><input type="text" name="_title" value="Re: $subject" size="80"><br>
 <textarea name="_text" rows="$textentryrows" cols="$textentrycols" wrap="physical">

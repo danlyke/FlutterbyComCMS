@@ -25,7 +25,7 @@ sub main
 			$configuration->{-databasepass})
       or die $DBI::errstr;
 $dbh->{AutoCommit} = 1;
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     ($userinfo,$loginerror) = Flutterby::Users::CheckLogin($cgi,$dbh);
 
@@ -69,6 +69,15 @@ $dbh->{AutoCommit} = 1;
 	   -cgi => $cgi
 	  );
 	$out->output($tree);
+
+    my $sql = "SELECT weblogcomments.entry_id AS blogentry_id FROM users, articles, weblogcomments WHERE ($query) AND ( articles.author_id=users.id AND weblogcomments.article_id=articles.id)";
+    my $sth = $dbh->prepare($sql);
+    $sth->execute();
+    while (my $row = $sth->fetchrow_arrayref)
+    {
+        Flutterby::Entries::InvalidateCache($dbh, $row->[0]);
+    }
+    
 
       }
     else

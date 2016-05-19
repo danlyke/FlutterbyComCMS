@@ -717,3 +717,41 @@ CREATE TRIGGER feedentrylinks_entered BEFORE INSERT ON feedentrylinks
   FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
 CREATE TRIGGER feedentrylinks_updated BEFORE UPDATE ON feedentrylinks
   FOR EACH ROW EXECUTE PROCEDURE articlehistoryupdate();
+
+
+CREATE TABLE blogentrycache (
+       id SERIAL PRIMARY KEY,
+       where_clause VARCHAR(250) NOT NULL,
+       from_date TIMESTAMP NOT NULL,
+       to_date TIMESTAMP NOT NULL,
+       text TEXT NOT NULL,
+       entered TIMESTAMP,
+       updated TIMESTAMP
+);
+
+CREATE INDEX blogentrycache_from_date ON blogentrycache(from_date);
+CREATE INDEX blogentrycache_to_date ON blogentrycache(to_date);
+CREATE UNIQUE INDEX blognetrycache_where_clause ON blogentrycache(where_clause);
+
+CREATE TRIGGER blogentrycache_entered BEFORE INSERT ON blogentrycache 
+  FOR EACH ROW EXECUTE PROCEDURE entered_stamp();
+CREATE TRIGGER blogentrycache_updated BEFORE UPDATE ON blogentrycache
+  FOR EACH ROW EXECUTE PROCEDURE articlehistoryupdate();
+
+CREATE FUNCTION to_ascii(bytea, name) RETURNS text STRICT
+ AS 'to_ascii_encname' LANGUAGE internal IMMUTABLE;
+
+CREATE FUNCTION punctuation_to_whitespace_and_ascii(TEXT) RETURNS TEXT
+AS '
+BEGIN
+RETURN regexp_replace(to_ascii(convert_to($1, ''LATIN1''), ''latin1''), ''[^[:alnum:]]'', '' '', ''g'');
+END '
+LANGUAGE 'plpgsql' IMMUTABLE;
+
+CREATE INDEX articles_text_no_punctuation ON articles
+USING gin(to_tsvector('english', punctuation_to_whitespace_and_ascii(text)));
+
+
+CREATE INDEX articles_title_no_punctuation ON articles
+USING gin(to_tsvector('english', punctuation_to_whitespace_and_ascii(text)));
+

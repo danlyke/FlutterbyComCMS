@@ -17,6 +17,7 @@ use Flutterby::Users;
 use Flutterby::Util;
 use Flutterby::DBUtil;
 use Flutterby::Spamcatcher;
+use Flutterby::Entries;
 
 use HTTP::Date;
 
@@ -25,24 +26,61 @@ sub LoadAllowCommentsArray($$$$)
 {
     my ($dbh,$array,$variables,$row0) = @_;
     my ($sql, $sth, $row, $latest);
-    
-    $sql = "SELECT now() - '2 weeks'::interval, now() - '7 days'::interval";
-    $sth = $dbh->prepare($sql) 
-        || die $dbh->errstr;
-    $sth->execute
-        || die $sth->errstr."\n$sql\n";
-    if ($row = $sth->fetchrow_arrayref) {
-        if ((defined($variables->{'userinfo_entered'})
-             && $row->[0] gt $variables->{'userinfo_entered'})
-            || (defined($row->[1]) && defined($row0->{'entered'})
-                && $row->[1] lt $row0->{'entered'})
-            || (defined($row->[1]) && defined($row0->{'latestcomment'})
-                && $row->[1] lt $row0->{'latestcomment'})) {
-            push @$array, ('allowthiscomment', 1);
+
+    if ($variables->{'userinfo_id'})
+    {
+        push @$array, ('allowthiscomment',1);
+    }
+    else
+    {
+        $sql = "SELECT now() - '2 weeks'::interval, now() - '7 days'::interval";
+        $sth = $dbh->prepare($sql) 
+            || die $dbh->errstr;
+        $sth->execute
+            || die $sth->errstr."\n$sql\n";
+        if ($row = $sth->fetchrow_arrayref) {
+            if ((defined($variables->{'userinfo_entered'})
+                 && $row->[0] gt $variables->{'userinfo_entered'})
+                || (defined($row->[1]) && defined($row0->{'entered'})
+                    && $row->[1] lt $row0->{'entered'})
+                || (defined($row->[1]) && defined($row0->{'latestcomment'})
+                    && $row->[1] lt $row0->{'latestcomment'})) {
+                push @$array, ('allowthiscomment', 1);
+            }
         }
 
     }
 }
+
+sub GetLastModified
+{
+    my ($dbh, $queryterms) = @_;
+    my $latest;
+    my $sql = <<EOT;
+SELECT MAX(blogentries.entered) AS entered,
+MAX(blogentries.updated) AS updated,
+MAX(blogentries.latestcomment) AS latestcomment
+FROM blogentries
+WHERE ($queryterms)
+EOT
+    my $sth = $dbh->prepare($sql) 
+        || die $dbh->errstr;
+    $sth->execute
+        || die $sth->errstr."\n$sql\n";
+    while (my $row = $sth->fetchrow_arrayref)
+    {
+        for (@$row)
+        {
+            print STDERR "Getting latest for $queryterms $_\n";
+            $latest = $_
+                if (!defined($latest)) || $latest lt $_;
+        }
+    }
+    $latest = time2str(str2time($latest)) if ($latest);
+
+    return $latest;
+}
+
 
 sub LoadEntriesToArray
 {
@@ -156,7 +194,7 @@ sub main($)
 {
     my ($dbh) = @_;
     my ($cgi, $userinfo,$loginerror,$continue,$cookie);
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     if (Flutterby::Spamcatcher::IsSpamReferer($ENV{'HTTP_REFERER'})) {
         print $cgi->header('text/plain');
@@ -184,14 +222,14 @@ sub main($)
 
             if (0 && $dbh->do($sql)) {
                 print <<EOF;
-<?xml version="1.0" encoding="iso-8859-1"?>
+<?xml version="1.0" encoding="utf-8"?>
 <response>
 <error>0</error>
 </response>
 EOF
             } else {
                 print <<EOF;
-<?xml version="1.0" encoding="iso-8859-1"?>
+<?xml version="1.0" encoding="utf-8"?>
 <response>
 <error>1</error>
 <message>$dbh->errstr</message>
@@ -206,7 +244,7 @@ EOF
             $err = join(', ', @err);
 
             print <<EOF;
-<?xml version="1.0" encoding="iso-8859-1"?>
+<?xml version="1.0" encoding="utf-8"?>
 <response>
 <error>1</error>
 <message>The following required parameters were not defined: $err</message>
@@ -224,7 +262,7 @@ EOF
             || die $dbh->errstr;
         $sth->execute || die $sth->errstr;
         print <<EOF;
-<?xml version="1.0" encoding="iso-8859-1"?>
+<?xml version="1.0" encoding="utf-8"?>
 <response>
 <error>0</error>
 <rss version="0.91"><channel>
@@ -282,7 +320,7 @@ EOF
                 my (%h);
                 $h{-cookie} = $cookie if ($cookie);
                 print $cgi->header(-type=>'text/html', -charset=>'utf-8',%h);
-                print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+                print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>';
                 my ($tree) = 
                     Flutterby::HTML::LoadHTMLFileAsTree($configuration->{-htmlpath}.'nounreadmessages.html');
                 my ($out);
@@ -302,9 +340,12 @@ EOF
     if (defined($userinfo)
         && 
         (!defined($cgi->param('_comment'))
-         || defined($userinfo->{'id'}))) {
-        if (defined($cgi->param('_comment'))) {
-            if (defined($cgi->param('_comment_id'))) {
+         || defined($userinfo->{'id'})))
+    {
+        if (defined($cgi->param('_comment')))
+        {
+            if (defined($cgi->param('_comment_id')))
+            {
                 my ($sql, $row, $sth);
                 my ($terms);
                 my ($texttype);
@@ -312,15 +353,16 @@ EOF
                 $texttype = '1' unless defined ($texttype);
                 $terms = ' AND author_id='.$dbh->quote($userinfo->{'id'});
 
-                Flutterby::DBUtil::escapeFieldsToEntities($cgi, '_text');
+                my $params = Flutterby::DBUtil::escapeFieldsToEntitiesHash($cgi, '_text', '_title');
                 $sql = 'UPDATE ARTICLES SET updated=NOW(), text='
-                    .$dbh->quote($cgi->param('_text'))
+                    .$dbh->quote($params->{'_text'})
                         .', texttype='
                             .$dbh->quote($texttype)
                                 .' WHERE id='
                                     .$dbh->quote($cgi->param('_comment_id'))
                                         .$terms;
                 $dbh->do($sql) or die "$sql\n".$dbh->errstr;
+                Flutterby::Entries::InvalidateCache($dbh, $cgi->param('id') // $cgi->param('entry_id'));
             } else {
                 my ($sql);
 
@@ -345,14 +387,14 @@ EOF
 
                 if (!$found) {
                     my ($id) = $dbh->selectrow_array("SELECT nextval('articles_id_seq')");
-                    Flutterby::DBUtil::escapeFieldsToEntities($cgi, '_text');
+                    my $params = Flutterby::DBUtil::escapeFieldsToEntitiesHash($cgi, '_text', '_title');
                     open O, '>>', '/home/danlyke/var/flutterbycms/inserttest.txt';
                     print O "--------------\n".$cgi->param('_text')."\n-------------------\n";
                     close O;
                     $sql = 'INSERT INTO articles (id, author_id, trackrevisions, title, text,texttype) VALUES ('
                         ."$id, $userinfo->{'id'}, 'true', "
-                            .$dbh->quote($cgi->param('_title')).','
-                                .$dbh->quote($cgi->param('_text')).','
+                            .$dbh->quote($params->{_title}).','
+                                .$dbh->quote($params->{_text}).','
                                     .$dbh->quote($cgi->param('_texttype')).')';
                     $dbh->do($sql) or die $dbh->errstr;
                     $sql = 'INSERT INTO weblogcomments(entry_id, article_id) '
@@ -362,9 +404,26 @@ EOF
                     $dbh->do($sql) or die $dbh->errstr;
                     $dbh->commit();
                 }
+                Flutterby::Entries::InvalidateCache($dbh,$cgi->param('id') // $cgi->param('entry_id'));
+            }
+        } # end of inserting a comment
+
+        my $cache_where_clause;
+        if (!$userinfo->{id})
+        {
+            my $id = $cgi->param('entry_id') // $cgi->param('id') // '';
+            my $fromdate = $cgi->param('fromdate') // '';
+            my $todate = $cgi->param('fromdate') // '';
+            $cache_where_clause = "viewentry:id=$id, fromadate=$fromdate, todate=$todate";
+            my $cache_text = Flutterby::Entries::GetCache($dbh,$cache_where_clause);
+            if ($cache_text)
+            {
+                print $cgi->header(-type=>'text/html', -charset=>'utf-8');
+                print $cache_text;
+                return;
             }
         }
-    
+        
         my ($query,$limit);
         $limit = '';
         $query = join(' OR ',
@@ -396,58 +455,87 @@ EOF
             $query = 'blogentries.id='.int(rand($maxid));
         }
 
-        my ($tree) =
-            Flutterby::HTML::LoadHTMLFileAsTree($configuration->{-htmlpath}.'viewentry.html');
-        my ($out, $formatters,$blogcommentsorder);
-        $blogcommentsorder = '';
-        if (defined($cgi->param('desc'))) {
-            $blogcommentsorder = 'DESC'
-                if ($cgi->param('desc') ne '0');
-        } else {
-            $blogcommentsorder = 'DESC'
-                if ($userinfo->{'showcommentsreversed'});
+        if (defined($cgi->request_method()) && $cgi->request_method() eq 'HEAD')
+        {
+            my $lastmodified = GetLastModified($dbh,$query);
+            my %h;
+            $h{-cookie} = $cookie if ($cookie);
+            $h{-Last_Modified} = $lastmodified if ($lastmodified);
+            print $cgi->header(-type=>'text/html', -charset=>'utf-8',%h);
+            print "$query\n";
         }
-
-        $variables->{'blogcommentsorder'} = $blogcommentsorder;
-        $variables->{'blogcommentsdesc'} = $blogcommentsorder eq 'DESC' ? '0' : '1';
-        $variables->{'blogcommentslabel'} = $blogcommentsorder eq 'DESC' ? 'descending' : 'ascending';
-        $variables->{'userinfo_id'} = $dbh->quote($userinfo->{'id'});
-        $variables->{'userinfo_entered'} = $dbh->quote($userinfo->{'entered'});
-        $variables->{'userinfo_editblogentries'} = $dbh->quote($userinfo->{'editblogentries'});
-        $variables->{'queryterms'} = $query;
-        $variables->{'limitterms'} = $limit;
-        $variables->{'textentryrows'} = $userinfo->{'textentryrows'} || 16;
-        $variables->{'textentrycols'} = $userinfo->{'textentrycols'} || 80;
-        $variables->{'addblogentries'} = $userinfo->{'addblogentries'} || '0';
-
-        $formatters =
+        else
         {
-         1 => new Flutterby::Parse::Text,
-         2 => new Flutterby::Parse::HTML,
-         'escapehtml' => new Flutterby::Parse::String,
-        };
-        my (%h,@blogentries,@allowcomments, $lastmodified);
-        $lastmodified = LoadEntriesToArray($dbh,\@blogentries,$formatters,$variables);
-        LoadAllowCommentsArray($dbh, \@allowcomments, $variables, $blogentries[0]);
+            my ($tree) =
+                Flutterby::HTML::LoadHTMLFileAsTree($configuration->{-htmlpath}.'viewentry.html');
+            my ($out, $formatters,$blogcommentsorder);
+            $blogcommentsorder = '';
+            if (defined($cgi->param('desc'))) {
+                $blogcommentsorder = 'DESC'
+                    if ($cgi->param('desc') ne '0');
+            } else {
+                $blogcommentsorder = 'DESC'
+                    if ($userinfo->{'showcommentsreversed'});
+            }
 
-        $h{-cookie} = $cookie if ($cookie);
-        $h{-Last_Modified} = $lastmodified if ($lastmodified);
-        print $cgi->header(-type=>'text/html', -charset=>'utf-8',%h);
-        print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+            $variables->{'blogcommentsorder'} = $blogcommentsorder;
+            $variables->{'blogcommentsdesc'} = $blogcommentsorder eq 'DESC' ? '0' : '1';
+            $variables->{'blogcommentslabel'} = $blogcommentsorder eq 'DESC' ? 'descending' : 'ascending';
+            $variables->{'userinfo_id'} = $dbh->quote($userinfo->{'id'});
+            $variables->{'userinfo_entered'} = $dbh->quote($userinfo->{'entered'});
+            $variables->{'userinfo_editblogentries'} = $dbh->quote($userinfo->{'editblogentries'});
+            $variables->{'queryterms'} = $query;
+            $variables->{'limitterms'} = $limit;
+            $variables->{'textentryrows'} = $userinfo->{'textentryrows'} || 16;
+            $variables->{'textentrycols'} = $userinfo->{'textentrycols'} || 80;
+            $variables->{'addblogentries'} = $userinfo->{'addblogentries'} || '0';
+            
+            $formatters =
+            {
+             1 => new Flutterby::Parse::Text,
+             2 => new Flutterby::Parse::HTML,
+             'escapehtml' => new Flutterby::Parse::String,
+            };
+            my (%h,@blogentries,@allowcomments, $lastmodified);
+            $lastmodified = LoadEntriesToArray($dbh,\@blogentries,$formatters,$variables);
+            LoadAllowCommentsArray($dbh, \@allowcomments, $variables, $blogentries[0]);
 
-        unless (defined($cgi->request_method()) && $cgi->request_method() eq 'HEAD')
-        {
+            $h{-cookie} = $cookie if ($cookie);
+            $h{-Last_Modified} = $lastmodified if ($lastmodified);
+            print $cgi->header(-type=>'text/html', -charset=>'utf-8',%h);
+            my $cache_text = '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
             $variables->{'blogentries'} = \@blogentries;
             $variables->{'allowcomments'} = \@allowcomments;
-
+            
             $out = new Flutterby::Output::HTMLProcessed
                 (
                  -dbh => $dbh,
                  -variables => $variables,
                  -textconverters => $formatters,
                  -cgi => new CGI('id='.$cgi->param('id')),
+                 -outputfunc => sub
+                 {
+                     shift;
+                     my $t = join('', @_);
+                     $cache_text .= $t;
+                     print $t;
+                 },
                 );
             $out->output($tree);
+            if (defined($cache_where_clause))
+            {
+                my ($from_date, $to_date);
+                use Data::Dumper;
+                for (@blogentries)
+                {
+                    $from_date = $_->{entered}
+                        if (!defined($from_date)) || $from_date lt $_->{entered};
+                    $to_date = $_->{entered}
+                        if (!defined($to_date)) || $to_date gt $_->{entered};
+                }
+                Flutterby::Entries::SetCache($dbh, $cache_where_clause,
+                                             $from_date,$to_date,$cache_text);
+            }
         }
     } else {
         my (%h);

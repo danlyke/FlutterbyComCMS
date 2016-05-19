@@ -2,6 +2,8 @@
 use strict;
 package Flutterby::Output::HTML;
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
+
 use Flutterby::Util;
 use HTML::Entities;
 
@@ -105,11 +107,10 @@ sub outputTag
 
     if ($self->{-suppressEvents})
     {
-        undef $attributes->{$_}
-            for (grep(/^on/,keys %$attributes));
-        undef $attributes->{class};
-        undef $attributes->{style};
-        undef $attributes->{id};
+	for ('class', 'style', 'id', grep(/^on/,keys %$attributes))
+	{
+	    delete $attributes->{$_} if exists($attributes->{$_});
+	}
     }
 
     if (lc($tag) eq 'a')
@@ -123,6 +124,16 @@ sub outputTag
     {
         $attributes->{AllowScriptAccess} = 'never';
         $attributes->{allownetworking} = 'internal';
+    }
+    if (lc($tag) eq 'img')
+    {
+	$attributes->{alt} //= '';
+	if ($attributes->{align})
+	{
+	    $attributes->{style} //= '';
+	    $attributes->{style} = "float: $attributes->{align}; $attributes->{style}";
+	    delete $attributes->{align};
+	}
     }
 
     &$outputfunc($self,"<$tag");
@@ -149,11 +160,12 @@ sub outputTag
           $self->outputChildren($childinfo);
           &$outputfunc($self,\&$post($self,$tag,$attributes,$childinfo))
               if (defined($post));
-          &$outputfunc($self,"</$tag>");
+	  &$outputfunc($self,"</$tag>")
+	      if (lc($tag) ne 'img');
       }
     else
       {
-          &$outputfunc($self,"></$tag>");
+          &$outputfunc($self,">");
           &$outputfunc($self,\&$post($self,$tag,$attributes,$childinfo))
               if (defined($post));
       }
@@ -184,9 +196,10 @@ sub outputTagNoSubst
         $self->outputChildren($childinfo);
         &$outputfunc($self,\&$post($self,$tag,$attributes,$childinfo))
             if (defined($post));
-        &$outputfunc($self,"</$tag>");
+        &$outputfunc($self,"</$tag>")
+	    if (lc($tag) ne 'img');
     } else {
-        &$outputfunc($self,'></$tag>');
+        &$outputfunc($self,'>');
         &$outputfunc($self,\&$post($self,$tag,$attributes,$childinfo))
             if (defined($post));
     }

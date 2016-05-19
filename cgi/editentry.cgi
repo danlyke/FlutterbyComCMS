@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
-#use CGI::Carp qw(fatalsToBrowser);
+use CGI; # qw/:standard -utf8/;
+use CGI::Carp qw(fatalsToBrowser);
 use Data::Dumper;
 use DBI;
 use lib 'flutterby_cms';
@@ -17,6 +17,7 @@ use Flutterby::Parse::FullyEscapedString;
 use Flutterby::Users;
 use Flutterby::Tree::Find;
 use Flutterby::DBUtil;
+use Flutterby::Entries;
 
 sub LoadTopicsToArray
 {
@@ -69,7 +70,7 @@ sub main
                            };
 
     my ($categories) = LoadCategories($dbh);
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     my ($variables);
     $variables = Flutterby::Users::GetWeblogInfo($cgi, $dbh);
@@ -81,7 +82,7 @@ sub main
         if ($cgi->param('_article_id')) {
             my ($sql);
             if ($cgi->param('_text')) {
-                my ($t) = $cgi->param('_text');
+                my $t = $cgi->param('_text');
                 $t =~ s/\r//g;
                 $cgi->param('_text' => $t);
             }
@@ -99,15 +100,16 @@ sub main
                             .'WHERE id='.$dbh->quote($cgi->param('_weblogentry_id'));
             $dbh->do($sql)
                 || die $dbh->errstr."\n$sql\n";
+            Flutterby::Entries::InvalidateCache($dbh, $cgi->param('_weblogentry_id'));
 	    
 	    
-            Flutterby::DBUtil::escapeFieldsToEntities($cgi, '_text','_title');
+            my $params = Flutterby::DBUtil::escapeFieldsToEntitiesHash($cgi, '_text','_title');
 	    
             $sql = "UPDATE articles SET "
                 .join(',',
                       map 
                       {
-                          "$_=".$dbh->quote($cgi->param('_'.$_));
+                          "$_=".$dbh->quote($params->{"_$_"} // $cgi->param("_$_"));
                       }
                       ('text','texttype','title'))
                     ." WHERE id=".$dbh->quote($cgi->param('_article_id'))
@@ -164,7 +166,7 @@ sub main
             my (%h);
             $h{'author_id'} = $dbh->quote($userinfo->{'id'});
 	    
-            Flutterby::DBUtil::escapeFieldsToEntities($cgi, '_text','_title');
+            my $params = Flutterby::DBUtil::escapeFieldsToEntitiesHash($cgi, '_text','_title');
 	    
             foreach ('text',
                      'texttype',
@@ -173,7 +175,7 @@ sub main
                      'primary_url',
                      'enclosure_url',
                      'deleted') {
-                $h{$_} = $dbh->quote($cgi->param("_$_"))
+                $h{$_} = $dbh->quote(($params->{"_$_"}) // $cgi->param("_$_"))
                     if (defined($cgi->param("_$_")));
             }
             my ($articleid) =
@@ -182,11 +184,12 @@ sub main
             $delay = $cgi->param('_publishdelay')
                 if (defined($cgi->param('_publishdelay'))
                     && $cgi->param('_publishdelay') =~ /^\d+(\.\d+)$/);
+            my $params = Flutterby::DBUtil::escapeFieldsToEntitiesHash($cgi, '_text', '_title');
 
             $sql = 'INSERT INTO articles(id, trackrevisions, title, text,'
                 ."texttype, author_id, entered) VALUES ($articleid, false,"
-                    .$dbh->quote($cgi->param('_title')).','
-                        .$dbh->quote($cgi->param('_text')).','
+                    .$dbh->quote($params->{_title}).','
+                        .$dbh->quote($params->{'_text'}).','
                             .$dbh->quote($cgi->param('_texttype'))
                                 .",$userinfo->{'id'}, NOW() + '$delay day'::interval )";
             $dbh->do($sql) || die "$sql\n".$dbh->errstr;
@@ -205,8 +208,8 @@ sub main
                             .')';
             $dbh->do($sql) || die "$sql\n".$dbh->errstr;
 	    
-            my ($text) = $cgi->param('_text');
-            my ($subject) = $cgi->param('_subject');
+            my $text = $cgi->param('_text');
+            my $subject = $cgi->param('_subject');
             my ($category, %categories);
             foreach $category (keys %$categories) {
                 my ($keywords);

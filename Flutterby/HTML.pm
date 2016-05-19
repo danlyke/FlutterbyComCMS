@@ -14,7 +14,7 @@ sub LoadHTMLFileAsTree
  				     'flutterbyrow' => 1,
  				     'flutterbycolordep' => 1,
 				    },
-				    -parsecommentbody => 1,
+#				    -parsecommentbody => 1,
 				    -allowalltags => 1,
 				   );
     my ($tree) = $p->parsefile($file);

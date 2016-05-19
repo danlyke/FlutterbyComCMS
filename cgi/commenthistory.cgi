@@ -25,10 +25,10 @@ sub main
 			$configuration->{-databasepass})
       or die $DBI::errstr;
 	$dbh->{AutoCommit} = 1;
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     print $cgi->header(-type=>'text/html', -charset=>'utf-8');
-    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>';
     my ($tree) = 
       Flutterby::HTML::LoadHTMLFileAsTree($configuration->{-htmlpath}.'commenthistory.html');
     

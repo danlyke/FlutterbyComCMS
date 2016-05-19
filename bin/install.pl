@@ -290,15 +290,16 @@ sub ProcessCGIFile($$)
 	while ($line = <I>)
 	{
 	    $line = "# $line" 
-		if ($line =~ /^\s*use Flutterby::Config(new)?\s*.*?\;/);
+            if ($line =~ /^\s*use Flutterby::Config(new)?\s*.*?\;/);
 	    $line = "use lib '$configoptions->{-packagepath}';\n"
-		if ($line =~ /^\s*use\s+lib\s+[\'\"](.*?)[\'\"]\s*\;/);
+            if ($line =~ /^\s*use\s+lib\s+[\'\"](.*?)[\'\"]\s*\;/);
 	    if ($line =~ /^\s*(\$\w+)\s+(\|\|)?\=\s+Flutterby\:\:Config(new)?\:\:load\(.*?\)\;/)
 	    {
-		my ($var);
-		$var = $1;
-		$line = Dumper($configoptions);
-		$line =~ s/\$VAR1/$var/;
+            my ($var);
+            $var = $1;
+            $line = Dumper($configoptions);
+            $line =~ s/\$VAR1/$var/;
+            $line = "binmode STDOUT, ':utf8';\n$line";
 	    }
 	    $modulesused{$1} = 1
 		if ($line =~ /^\s*use\s+(Flutterby::.*?)(\s.*?)?;/);

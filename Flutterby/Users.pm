@@ -318,8 +318,8 @@ sub GetSqlIfLoginInfo($$)
                               map 
                               {
                                   $dbh->quote($_) }
-                              $cgi->param('!user'),
-                              $cgi->param('!pass'),
+                              scalar($cgi->param('!user')),
+                              scalar($cgi->param('!pass')),
                               $secretsalt)
                             .",'sha512'::text), 'hex')"
                                 .' AND capabilities.user_id=users.id AND capabilities.weblog_id='
@@ -410,10 +410,10 @@ sub CheckLogin($$)
     my ($cookie,$row,$error) = GetCookieAndLogin($cgi,$dbh);
     if (defined($cookie)) {
         print $cgi->header(-cookie=>$cookie);
-        print '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+        print '<!DOCTYPE html>';
     } else {
         print $cgi->header;
-        print '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+        print '<!DOCTYPE html>';
     }
     return wantarray ? ($row,$error) : $row;
 }

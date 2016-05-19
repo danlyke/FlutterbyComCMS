@@ -36,7 +36,7 @@ use Flutterby::DBUtil;
 sub main
 {
     my ($cgi, $dbh,$userinfo,$loginerror);
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     if ($cgi->param('mode') eq 'regist')
     {

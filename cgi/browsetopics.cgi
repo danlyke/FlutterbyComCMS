@@ -21,7 +21,7 @@ use Flutterby::Spamcatcher;
 sub main
   {
     my ($cgi, $dbh,$userinfo);
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     if (Flutterby::Spamcatcher::IsSpamReferer($ENV{'HTTP_REFERER'}))
     {

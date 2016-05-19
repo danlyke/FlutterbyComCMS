@@ -19,7 +19,7 @@ $dbh = DBI->connect($configuration->{-database},
     ."Password: $configuration->{-databasepass}\n"
     ."DBI Error: ".$DBI::errstr."\ndollarbang: $!\n";
 	$dbh->{AutoCommit} = 1;
-my $cgi = new CGI;
+my $cgi = CGI->new(); $cgi->charset('utf-8');
 
 if (defined($cgi->param('target'))
        && defined($cgi->param('ticket'))

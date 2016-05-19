@@ -91,7 +91,6 @@ sub UpdateFileClass($)
 
     if (open O, ">$destinationfiles$info->{-target}.bak")
     {
-        binmode O;
 	my ($variables);
 	if ($info->{-weblogid})
 	{
@@ -126,7 +125,7 @@ sub UpdateFileClass($)
 	    'dayofweek' => new Flutterby::Parse::DayOfWeek,
 	   },
 	  );
-	print O '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+	print O '<!DOCTYPE html>';
 	$out->setOutput(\*O);
 	$out->output($tree);
 	close O;

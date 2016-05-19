@@ -24,7 +24,7 @@ sub main
 			$configuration->{-databasepass})
       or die DBI::errstr;
 	$dbh->{AutoCommit} = 1;
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     ($userinfo,$loginerror) = Flutterby::Users::CheckLogin($cgi,$dbh);
     if (defined($userinfo)
@@ -76,7 +76,8 @@ sub main
 			    (/^\w+$/ ? 'photos.directory='.$dbh->quote($_) 
 			     :
 			     (/^(\w+)\/(\w+)$/ ? ('(photos.directory='.$dbh->quote($1)
-						  .' AND photos.name='.$dbh->quote($2).')')
+                                      .' AND (photos.name='.$dbh->quote($2).
+                                      'OR photos.name='.$dbh->quote("img$2").'))')
 			      :
 			      'false'))
 		      } (split (/\,/,$cgi->param('id'))))

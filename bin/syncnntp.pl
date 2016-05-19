@@ -141,7 +141,7 @@ EOF
 Content-Type: text/html; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 EOF
 
     while ($htmlmessage =~ s/^(.{1,78}\s|.{1,78}WAR\-|.*?\s)//s)

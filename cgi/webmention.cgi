@@ -18,13 +18,13 @@ sub main($)
 {
     my ($dbh) = @_;
     my $cgi = CGI->new();
+    $cgi->charset('utf-8');
 
     my $cgi_response = '200 OK';
     my $cgi_response_text;
 
     if ($cgi->param('source')
-        && $cgi->param('target')
-       && $cgi->param('vouch'))
+        && $cgi->param('target'))
     {
         my $vouch = $cgi->param('vouch');
         my $link = $cgi->param('target');

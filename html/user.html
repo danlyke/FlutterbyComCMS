@@ -1,4 +1,4 @@
-<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en" >
   <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -38,7 +38,7 @@ sql="SELECT
    WHEN weblog_url = '' OR weblog_url = 'http://' THEN
      ''
    ELSE
-     ('&lt;br&gt;&lt;em&gt;Weblog&lt;/em&gt;&lt;a href=&quot;'||weblog_url||'&quot;&gt;&lt;img src=&quot'||adbanner_url||'&quot width=&quot;125&quot; height=&quot;24&quot; alt=&quot;'||weblog_name||'&quot;&gt;'||weblog_name||'&lt;/a&gt;')
+     ('&lt;br&gt;&lt;em&gt;Weblog&lt;/em&gt; &lt;a href=&quot;'||weblog_url||'&quot;&gt;'||weblog_name||'&lt;/a&gt;')
    END
  AS weblog_url_text, 
  bio_text, 

@@ -2,6 +2,8 @@
 use strict;
 package Flutterby::Parse::FullyEscapedString;
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
+
 
 sub new
   {

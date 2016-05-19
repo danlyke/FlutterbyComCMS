@@ -1,5 +1,6 @@
 package Flutterby::Util;
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
 
 sub UnixTimeAsISO8601 {
   my ($time) = @_;

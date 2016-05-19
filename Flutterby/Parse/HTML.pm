@@ -2,6 +2,8 @@
 use strict;
 package Flutterby::Parse::HTML;
 use utf8::all;
+use open ':std', ':encoding(UTF-8)';
+
 # use Flutterby::Parse::TreeBuild;
 use Flutterby::Parse::HTMLUtil;
 use HTML::Entities;
@@ -17,8 +19,8 @@ sub MyDecodeEntities
     }
     my $c;
     for (@$array) {
-        s/(\&\#(\d+);?)/$2 < 256 ? chr($2) : $1/eg;
-        s/(\&\#[xX]([0-9a-fA-F]+);?)/$c = hex($2); $c < 256 ? chr($c) : $1/eg;
+        s/(\&\#(\d+);?)/$2 < 128 ? chr($2) : $1/eg;
+        s/(\&\#[xX]([0-9a-fA-F]+);?)/$c = hex($2); $c < 128 ? chr($c) : $1/eg;
         s/(\&(\w+);)/$HTML::Entities::entity2char{$2} || $1/eg;
     }
     wantarray ? @$array : $array->[0];

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+!#!/usr/bin/perl -w
 use strict;
 use CGI;
 use DBI;
@@ -83,7 +83,7 @@ sub main()
     my ($start, $perscreen, $end, $results, $i);
     
     print $cgi->header();
-    print '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+    print '<!DOCTYPE html>';
     my ($cacheTime) = time() - 60 * 20;
     foreach (keys %$queryCache)
     {

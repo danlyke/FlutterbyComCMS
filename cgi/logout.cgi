@@ -15,13 +15,13 @@ sub main($)
   {
     my ($dbh) = @_;
     my ($cgi);
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
     my ($cookie);
     $cookie = $cgi->cookie(-name=>'id',
 			   -value=>'',
 			   -path=>'/');
     print $cgi->header(-cookie => $cookie, -type=>'text/html', -charset=>'utf-8');
-    print '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+    print '<!DOCTYPE html>';
     my ($tree) = 
       Flutterby::HTML::LoadHTMLFileAsTree($configuration->{-htmlpath}.'logout.html');
     my ($variables);

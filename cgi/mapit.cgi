@@ -26,7 +26,7 @@ sub main
 			$configuration->{-databasepass})
       or die $DBI::errstr;
 	$dbh->{AutoCommit} = 1;
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
     $userinfo = Flutterby::Users::CheckLogin($cgi,$dbh);
 
     my $tree = Flutterby::HTML::LoadHTMLFileAsTree($configuration->{-htmlpath}.'mapit.html');

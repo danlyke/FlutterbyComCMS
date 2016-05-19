@@ -28,7 +28,7 @@ sub main
 			$configuration->{-databasepass})
       or die $DBI::errstr;
 	$dbh->{AutoCommit} = 1;
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     ($userinfo,$loginerror) = Flutterby::Users::CheckLogin($cgi,$dbh);
 
@@ -100,7 +100,7 @@ sub main
 			     'dayofweek' => new Flutterby::Parse::DayOfWeek,
 			 },
 			 );
-		    print O '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+		    print O '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>';
 		    $out->setOutput(\*O);
 		    $out->output($tree);
 		    close O;

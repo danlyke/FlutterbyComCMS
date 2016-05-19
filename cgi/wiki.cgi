@@ -24,7 +24,7 @@ use Flutterby::Spamcatcher;
 sub main
 {
     my ($cgi, $dbh,$cookie, $userinfo,$loginerror);
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
     if (Flutterby::Spamcatcher::IsSpamReferer($ENV{'HTTP_REFERER'}))
     {
 	my $dest = "http://$ENV{'SERVER_NAME'}$ENV{'REQUEST_URI'}";;
@@ -99,7 +99,7 @@ sub main
 	    $h{-cookie} = $cookie if ($cookie);
 	    print $cgi->header(-type=>'text/html', -charset=>'utf-8',%h);
 	    $cgi->param('wikiid' => $wikiid) if defined($wikiid);
-	    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+	    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>';
 	    Flutterby::Users::PrintLoginScreen($configuration,
 					     $cgi, 
 					     $dbh,
@@ -129,7 +129,7 @@ sub main
 	    $h{-cookie} = $cookie if ($cookie);
 	    $cgi->param('wikiid' => $wikiid) if defined($wikiid);
 	    print $cgi->header(-type=>'text/html', -charset=>'utf-8',%h);
-	    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+	    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
 	    Flutterby::Users::PrintLoginScreen($configuration,
 					     $cgi, 
 					       $dbh,
@@ -203,7 +203,7 @@ sub main
 	my (%h,@blogentries,$lastmodified);
 	$h{-cookie} = $cookie if ($cookie);
 	print $cgi->header(-type=>'text/html', -charset=>'utf-8',%h);
-	print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+	print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
 	
 	$out = new Flutterby::Output::HTMLProcessed
 	    (
@@ -238,7 +238,7 @@ sub main
 	my (%h,@blogentries,$lastmodified);
 	$h{-cookie} = $cookie if ($cookie);
 	print $cgi->header(-type=>'text/html', -charset=>'utf-8', %h);
-	print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+	print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">';
 
 	$out = new Flutterby::Output::HTMLProcessed
 	    (

@@ -26,6 +26,7 @@ sub main
     my ($cgi, $dbh,$userinfo,$loginerror);
 
     my $cgi = CGI->new();
+    $cgi->charset('utf-8');
     my $remotepage = get($cgi->param('target'));
 
     my $parser = Flutterby::Parse::HTML->new();
@@ -44,7 +45,7 @@ sub main
 			$configuration->{-databasepass})
       or die $DBI::errstr;
 	$dbh->{AutoCommit} = 1;
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
     my ($variables);
     $variables = Flutterby::Users::GetWeblogInfo($cgi, $dbh);
 

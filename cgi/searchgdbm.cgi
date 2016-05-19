@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+!#!/usr/bin/perl -w
 use strict;
 use CGI;
 use DB_File;
@@ -109,7 +109,7 @@ sub main()
     my ($search);
     my ($start, $perscreen, $end, $results, $i);
     print $cgi->header();
-    print '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+    print '<!DOCTYPE html>';
     $search = $cgi->param('q');
     $search = $cgi->param('search') unless defined($search);
     

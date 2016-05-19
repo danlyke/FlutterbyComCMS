@@ -16,6 +16,7 @@ use Flutterby::Parse::String;
 use Flutterby::Users;
 use Flutterby::Util;
 use Flutterby::DBUtil;
+use Flutterby::Entries;
 
 
 use HTTP::Date;
@@ -152,8 +153,24 @@ sub main
 			$configuration->{-databasepass})
       or die DBI::errstr;
 	$dbh->{AutoCommit} = 1;
-    $cgi = new CGI;
+    $cgi = CGI->new(); $cgi->charset('utf-8');
 
+    my $cache_where_clause;
+    if (1)
+    {
+        my $id = $cgi->param('entry_id') // $cgi->param('id') // '';
+        my $fromdate = $cgi->param('fromdate') // '';
+        my $todate = $cgi->param('todate') // '';
+        $cache_where_clause = "viewentries:id=$id, fromadate=$fromdate, todate=$todate";
+        my $cache_text = Flutterby::Entries::GetCache($dbh,$cache_where_clause);
+        if ($cache_text)
+        {
+            print $cgi->header(-type=>'text/html', -charset=>'utf-8');
+            print $cache_text;
+            return;
+        }
+    }
+    
     ($cookie,$userinfo,$loginerror) = Flutterby::Users::GetCookieAndLogin($cgi,$dbh);
 
     my ($query,$limit);
@@ -228,21 +245,36 @@ sub main
     $h{-type} = 'text/html';
     $h{-charset} = 'utf-8';
     print $cgi->header(%h);
-    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "DTD/xhtml1-transitional.dtd">';
+    my $cache_text = '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>';
+    print $cache_text;
 
     unless (defined($cgi->request_method()) && $cgi->request_method() eq 'HEAD')
     {
-	$variables->{'blogentries'} = \@blogentries;
-	my $entryid = $cgi->param('id');
-	$entryid = '' unless(defined($entryid));
-	$out = new Flutterby::Output::HTMLProcessed
-	    (
-	     -dbh => $dbh,
-	     -variables => $variables,
-	     -textconverters => $formatters,
-	     -cgi => new CGI('id='.$entryid),
-	     );
-	$out->output($tree);
+        $variables->{'blogentries'} = \@blogentries;
+        my $entryid = $cgi->param('id');
+        $entryid = '' unless(defined($entryid));
+        $out = new Flutterby::Output::HTMLProcessed
+            (
+             -dbh => $dbh,
+             -variables => $variables,
+             -textconverters => $formatters,
+             -cgi => new CGI('id='.$entryid),
+             -outputfunc => sub { shift; my $t = join('', @_); $cache_text .= $t; print $t; },
+            );
+        $out->output($tree);
+        if (defined($cache_where_clause))
+        {
+            my ($from_date, $to_date);
+            for (@blogentries)
+            {
+                $from_date = $_->{entered}
+                    if (!defined($from_date)) || $from_date lt $_->{entered};
+                $to_date = $_->{entered}
+                    if (!defined($to_date)) || $to_date gt $_->{entered};
+            }
+            Flutterby::Entries::SetCache($dbh,$cache_where_clause,
+                                         $from_date,$to_date,$cache_text);
+        }
     }
     $dbh->disconnect;
 }
