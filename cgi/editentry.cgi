@@ -1,7 +1,9 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI; # qw/:standard -utf8/;
+use CGI qw/-utf8/;
+use CGI::Fast (-utf8);
 use CGI::Carp qw(fatalsToBrowser);
+use Encode;
 use Data::Dumper;
 use DBI;
 use lib 'flutterby_cms';
@@ -56,12 +58,8 @@ sub LoadCategories($)
 
 sub main
 {
-    my ($cgi, $dbh,$userinfo,$loginerror,$textconverters);
-    $dbh = DBI->connect($configuration->{-database},
-                        $configuration->{-databaseuser},
-                        $configuration->{-databasepass})
-        or die $DBI::errstr;
-	$dbh->{AutoCommit} = 1;
+    my ($dbh, $cgi) = @_;
+    my ($userinfo,$loginerror,$textconverters);
     $textconverters = 	   { 
                             1 => new Flutterby::Parse::Text,
                             2 => new Flutterby::Parse::HTML,
@@ -70,7 +68,6 @@ sub main
                            };
 
     my ($categories) = LoadCategories($dbh);
-    $cgi = CGI->new(); $cgi->charset('utf-8');
 
     my ($variables);
     $variables = Flutterby::Users::GetWeblogInfo($cgi, $dbh);
@@ -82,25 +79,25 @@ sub main
         if ($cgi->param('_article_id')) {
             my ($sql);
             if ($cgi->param('_text')) {
-                my $t = $cgi->param('_text');
+                my $t =  $cgi->param('_text');
                 $t =~ s/\r//g;
                 $cgi->param('_text' => $t);
             }
             $terms = ' AND author_id='.$dbh->quote($userinfo->{'id'})
                 unless ($userinfo->{'editblogentries'});
 	    
-            my $primary_url = $cgi->param('_primary_url');
-            my $enclosure_url = $cgi->param('_enclosure_url');
+            my $primary_url =  $cgi->param('_primary_url');
+            my $enclosure_url =  $cgi->param('_enclosure_url');
             $primary_url = '' unless defined($primary_url);
             $enclosure_url = '' unless defined($enclosure_url);
             $sql = 'UPDATE weblogentries SET primary_url='
                 .$dbh->quote($primary_url)
                     .', enclosure_url='
                         .$dbh->quote($enclosure_url)
-                            .'WHERE id='.$dbh->quote($cgi->param('_weblogentry_id'));
+                            .'WHERE id='. $dbh->quote($cgi->param('_weblogentry_id'));
             $dbh->do($sql)
                 || die $dbh->errstr."\n$sql\n";
-            Flutterby::Entries::InvalidateCache($dbh, $cgi->param('_weblogentry_id'));
+            Flutterby::Entries::InvalidateCache($dbh,  $cgi->param('_weblogentry_id'));
 	    
 	    
             my $params = Flutterby::DBUtil::escapeFieldsToEntitiesHash($cgi, '_text','_title');
@@ -109,10 +106,10 @@ sub main
                 .join(',',
                       map 
                       {
-                          "$_=".$dbh->quote($params->{"_$_"} // $cgi->param("_$_"));
+                          "$_=". $dbh->quote($params->{"_$_"} // $cgi->param("_$_"));
                       }
                       ('text','texttype','title'))
-                    ." WHERE id=".$dbh->quote($cgi->param('_article_id'))
+                    ." WHERE id=".$dbh->quote( $cgi->param('_article_id'))
                         .$terms;
             $dbh->do($sql)
                 || print $dbh->errstr."\n$sql\n";
@@ -122,27 +119,27 @@ sub main
             foreach ($cgi->param()) {
                 $h{$1} = 1 if (/^_topic\.(\d+)$/);
                 if (/^_newtopic(\d+)$/ && $cgi->param($_) ne '') {
-                    push @newtopics, $cgi->param($_);
+                    push @newtopics,  $cgi->param($_);
                     $cgi->param($_ => '');
                 }
             }
             my ($sth,$row);
             $sql = 'SELECT topic_id FROM articletopiclinks WHERE article_id='
-                .$cgi->param('_article_id');
+                . $cgi->param('_article_id');
             $sth = $dbh->prepare($sql)
                 or die $sql."\n".$dbh->errstr;
             $sth->execute or die $sth->errstr;
             while ($row = $sth->fetchrow_arrayref) {
                 unless ($h{$row->[0]}) {
                     $dbh->do("DELETE FROM articletopiclinks WHERE topic_id=$row->[0] AND article_id="
-                             .$cgi->param('_article_id'));
+                             . $cgi->param('_article_id'));
                     $dbh->commit();
                 }
             }
             foreach (@newtopics) {
                 $sql = 
                     'INSERT INTO articletopiclinks (topic_id,article_id) VALUES ('
-                        .$_.','.$cgi->param('_article_id').')';
+                        .$_.','. $cgi->param('_article_id').')';
                 unless ($dbh->do($sql))
                 {
                     # most conceivable error here is "duplicate key",
@@ -175,7 +172,7 @@ sub main
                      'primary_url',
                      'enclosure_url',
                      'deleted') {
-                $h{$_} = $dbh->quote(($params->{"_$_"}) // $cgi->param("_$_"))
+                $h{$_} = $dbh->quote(($params->{"_$_"}) //  $cgi->param("_$_"))
                     if (defined($cgi->param("_$_")));
             }
             my ($articleid) =
@@ -208,8 +205,8 @@ sub main
                             .')';
             $dbh->do($sql) || die "$sql\n".$dbh->errstr;
 	    
-            my $text = $cgi->param('_text');
-            my $subject = $cgi->param('_subject');
+            my $text =  $cgi->param('_text');
+            my $subject =  $cgi->param('_subject');
             my ($category, %categories);
             foreach $category (keys %$categories) {
                 my ($keywords);
@@ -342,6 +339,21 @@ sub main
                                            './editentry.cgi',
                                            $loginerror);
     }
-    $dbh->disconnect;
 }
-&main;
+
+
+my $dbh = DBI->connect($configuration->{-database},
+                       $configuration->{-databaseuser},
+                       $configuration->{-databasepass})
+    or die $DBI::errstr;
+$dbh->{AutoCommit} = 1;
+
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+    main($dbh, $cgi);
+}
+
+$dbh->disconnect;
+

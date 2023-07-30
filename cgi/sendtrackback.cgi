@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI::Fast (-utf8);
 #use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -22,13 +22,8 @@ use Flutterby::Parse::DayOfWeek;
 
 sub main
 {
-    my ($cgi, $dbh,$userinfo,$loginerror);
-    $dbh = DBI->connect($configuration->{-database},
-			$configuration->{-databaseuser},
-			$configuration->{-databasepass})
-      or die $DBI::errstr;
-	$dbh->{AutoCommit} = 1;
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+    my ($dbh, $cgi) = @_;
+    my ($userinfo,$loginerror);
     my ($variables);
     $variables = Flutterby::Users::GetWeblogInfo($cgi, $dbh);
 
@@ -100,6 +95,19 @@ sub main
 					   './newentry.cgi',
 					   $loginerror);
     }
-    $dbh->disconnect;
 }
-&main;
+
+my $dbh = DBI->connect($configuration->{-database},
+                       $configuration->{-databaseuser},
+                       $configuration->{-databasepass})
+    or die $DBI::errstr;
+$dbh->{AutoCommit} = 1;
+
+while ($cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+
+    main($dbh, $cgi);
+}
+$dbh->disconnect;

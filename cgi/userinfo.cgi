@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI qw/-utf8/;
+use CGI::Fast qw/-utf8/;
 #use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -35,8 +36,8 @@ use Flutterby::DBUtil;
 
 sub main
 {
-    my ($cgi, $dbh,$userinfo,$loginerror);
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+    my ($dbh, $cgi) = @_;
+    my ($userinfo,$loginerror);
 
     if ($cgi->param('mode') eq 'regist')
     {
@@ -44,15 +45,6 @@ sub main
         print "\nFuck off\n";
         return;
     }
-
-    $dbh = DBI->connect($configuration->{-database},
-                        $configuration->{-databaseuser},
-                        $configuration->{-databasepass})
-        or die "DBH: $dbh\nDatabase: $configuration->{-database}\n"
-            ."User: $configuration->{-databaseuser}\n"
-                ."Password: $configuration->{-databasepass}\n"
-                    ."DBI Error: ".$DBI::errstr."\ndollarbang: $!\n";
-	$dbh->{AutoCommit} = 1;
 
     if ($ENV{REQUEST_METHOD} eq 'POST' && !($cgi->param('!pass') || $cgi->param('!pass1')))
     {
@@ -151,6 +143,23 @@ sub main
                                            './userinfo.cgi',
                                            $loginerror);
     }
-    $dbh->disconnect;
 }
-&main;
+
+my $dbh = DBI->connect($configuration->{-database},
+                       $configuration->{-databaseuser},
+                       $configuration->{-databasepass})
+    or die "Database: $configuration->{-database}\n"
+    ."User: $configuration->{-databaseuser}\n"
+    ."Password: $configuration->{-databasepass}\n"
+    ."DBI Error: ".$DBI::errstr."\ndollarbang: $!\n";
+$dbh->{AutoCommit} = 1;
+
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+
+    main($dbh, $cgi);
+}
+$dbh->disconnect();
+

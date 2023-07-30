@@ -60,7 +60,7 @@ $displaytext
 <p><b>Entry #</b>$article_id <b>Made By:</b> $name
 <br>Title:
 <br><input type="text" name="_title" value="$title" size="80"><br>
-<p><textarea name="_text" rows="$textentryrows" cols="$textentrycols" wrap="physical">$text</textarea>
+<p><textarea wrap="soft" name="_text" rows="$textentryrows" cols="$textentrycols" wrap="physical">$text</textarea>
 </p>
 Format with: <select name="_texttype">
 <flutterbyquery sql="SELECT id AS texttype_id, name AS texttype_name FROM texttypes">

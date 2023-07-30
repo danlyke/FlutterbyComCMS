@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI qw/-utf8/;
+use CGI::Fast qw/-utf8/;
 #use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -145,15 +146,10 @@ sub DumpRefTree
       }
   }
 
-sub main
+sub main($$)
 {
-    my ($cgi, $dbh,$userinfo,$loginerror,$continue,$cookie, $pagetitle);
-    $dbh = DBI->connect($configuration->{-database},
-			$configuration->{-databaseuser},
-			$configuration->{-databasepass})
-      or die DBI::errstr;
-	$dbh->{AutoCommit} = 1;
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+    my ($dbh, $cgi) = @_;
+    my ($userinfo,$loginerror,$continue,$cookie, $pagetitle);
 
     my $cache_where_clause;
     if (1)
@@ -258,7 +254,7 @@ sub main
              -dbh => $dbh,
              -variables => $variables,
              -textconverters => $formatters,
-             -cgi => new CGI('id='.$entryid),
+             -cgi => CGI::Fast->new({ id => $entryid} ),
              -outputfunc => sub { shift; my $t = join('', @_); $cache_text .= $t; print $t; },
             );
         $out->output($tree);
@@ -276,6 +272,17 @@ sub main
                                          $from_date,$to_date,$cache_text);
         }
     }
-    $dbh->disconnect;
 }
-&main;
+
+my $dbh = DBI->connect($configuration->{-database},
+                    $configuration->{-databaseuser},
+                    $configuration->{-databasepass})
+    or die DBI::errstr;
+$dbh->{AutoCommit} = 1;
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+    main($dbh,$cgi);
+}
+$dbh->disconnect;

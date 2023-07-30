@@ -81,7 +81,7 @@ SELECT topic, topic_id, 'escapehtml' AS escapehtml FROM articletopiclinks, artic
 <br>Enclosure URL (for audio blog posts and the like):
 <br><input type="text" name="_enclosure_url" size="80" value="$enclosure_url" length="254">
 
-<br><textarea name="_text" rows="$textentryrows" cols="$textentrycols" wrap="physical">$text</textarea>
+<br><textarea wrap="soft" name="_text" rows="$textentryrows" cols="$textentrycols" wrap="physical">$text</textarea>
 <br>
 Format with: <select name="_texttype">
 <flutterbyquery sql="SELECT id AS texttype_id, name AS texttype_name FROM texttypes">

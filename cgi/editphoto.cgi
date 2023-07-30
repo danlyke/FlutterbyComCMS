@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI::Fast (-utf8);
 use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -23,14 +23,7 @@ my ($validphotodirs) =
 
 sub maineditphoto
 {
-    my ($cgi, $dbh,$userinfo,$loginerror,$continue);
-    $dbh = DBI->connect($configuration->{-database},
-                        $configuration->{-databaseuser},
-                        $configuration->{-databasepass})
-        or die DBI::errstr;
-	$dbh->{AutoCommit} = 1;
-	
-    $cgi = CGI->new();
+    my ($dbh, $cgi,$userinfo,$loginerror,$continue);
     #$cgi->charset('utf-8');
 
     ($userinfo,$loginerror) = Flutterby::Users::CheckLogin($cgi,$dbh);
@@ -311,6 +304,18 @@ sub maineditphoto
                                            './editphoto.cgi',
                                            $loginerror);
     }
-    $dbh->disconnect;
 }
-&maineditphoto;
+
+my $dbh = DBI->connect($configuration->{-database},
+                        $configuration->{-databaseuser},
+                        $configuration->{-databasepass})
+        or die DBI::errstr;
+$dbh->{AutoCommit} = 1;
+	
+while ($cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    &maineditphoto;
+}
+$dbh->disconnect;
+

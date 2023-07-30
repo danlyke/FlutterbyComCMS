@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI qw/-utf8/;
+use CGI::Fast qw/-utf8/;
 use DBI;
 use lib 'flutterby_cms';
 use vars qw($configuration);
@@ -14,10 +14,9 @@ use Data::Dumper;
 
 use LWP::Simple;
 
-sub main($)
+sub main($$)
 {
-    my ($dbh) = @_;
-    my $cgi = CGI->new();
+    my ($dbh, $cgi) = @_;
     $cgi->charset('utf-8');
 
     my $cgi_response = '200 OK';
@@ -148,5 +147,9 @@ my $dbh = DBI->connect($configuration->{-database},
     or die DBI::errstr;
 $dbh->{AutoCommit} = 1;
 
-main($dbh);
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    main($dbh, $cgi);
+}
 $dbh->disconnect;

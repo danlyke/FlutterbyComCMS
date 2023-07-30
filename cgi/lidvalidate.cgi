@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI::Fast (-utf8);
 use DBI;
 use URI::Escape;
 use lib 'flutterby_cms';
@@ -19,7 +19,10 @@ $dbh = DBI->connect($configuration->{-database},
     ."Password: $configuration->{-databasepass}\n"
     ."DBI Error: ".$DBI::errstr."\ndollarbang: $!\n";
 	$dbh->{AutoCommit} = 1;
-my $cgi = CGI->new(); $cgi->charset('utf-8');
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
 
 if (defined($cgi->param('target'))
        && defined($cgi->param('ticket'))
@@ -33,4 +36,6 @@ if (defined($cgi->param('target'))
 			 .'?target='.uri_escape($target)
 			 .'&ticket='.uri_escape($cgi->param('ticket'))
 			 .'&action=sso-approve&credtype=gpg%20--clearsign')
+}
+
 }

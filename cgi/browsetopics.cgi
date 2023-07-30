@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use CGI;
+use CGI::Fast (-utf8);
 use CGI::Carp qw(fatalsToBrowser);
 
 use DBI;
@@ -19,9 +19,9 @@ use Flutterby::Users;
 use Flutterby::Spamcatcher;
 
 sub main
-  {
-    my ($cgi, $dbh,$userinfo);
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+{
+    my ($dbh, $cgi) = @_;
+    my ($userinfo);
 
     if (Flutterby::Spamcatcher::IsSpamReferer($ENV{'HTTP_REFERER'}))
     {
@@ -88,11 +88,6 @@ EOF
 	return;
     }
 
-    $dbh = DBI->connect($configuration->{-database},
-			$configuration->{-databaseuser},
-			$configuration->{-databasepass})
-      or die $DBI::errstr;
-	$dbh->{AutoCommit} = 1;
 
     $userinfo = Flutterby::Users::CheckLogin($cgi,$dbh);
 
@@ -145,9 +140,23 @@ EOF
        -cgi => $cgi
       );
     $out->output($tree);
-    $dbh->disconnect;
-  }
-&main;
+}
+
+my $dbh = DBI->connect($configuration->{-database},
+                       $configuration->{-databaseuser},
+                       $configuration->{-databasepass})
+    or die $DBI::errstr;
+$dbh->{AutoCommit} = 1;
+
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+
+    main($dbh, $cgi);
+}
+
+$dbh->disconnect;
 
 
 

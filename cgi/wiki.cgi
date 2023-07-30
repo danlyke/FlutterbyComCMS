@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI qw/-utf8/;
+use CGI::Fast (-utf8);
 #use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -23,8 +24,8 @@ use Flutterby::Spamcatcher;
 
 sub main
 {
-    my ($cgi, $dbh,$cookie, $userinfo,$loginerror);
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+    my ($dbh,$cgi) = @_;
+    my ($cookie, $userinfo,$loginerror);
     if (Flutterby::Spamcatcher::IsSpamReferer($ENV{'HTTP_REFERER'}))
     {
 	my $dest = "http://$ENV{'SERVER_NAME'}$ENV{'REQUEST_URI'}";;
@@ -46,11 +47,6 @@ sub main
 	return;
     }
 
-    $dbh = DBI->connect($configuration->{-database},
-						$configuration->{-databaseuser},
-						$configuration->{-databasepass})
-		or die $DBI::errstr;
-	$dbh->{AutoCommit} = 1;
 
     ($cookie,$userinfo,$loginerror) = Flutterby::Users::GetCookieAndLogin($cgi,$dbh);
     my ($variables);
@@ -116,7 +112,7 @@ sub main
 	}
 	$sql = 'UPDATE articles SET '
 	    .join(', ', @a)
-	    .' WHERE articles.id='.$dbh->quote($cgi->param('_article_id'));
+	    .' WHERE articles.id='.$dbh->quote(scalar($cgi->param('_article_id')));
 	$dbh->do($sql) or die $dbh->errstr;
     }
     elsif (defined($cgi->param('_text'))
@@ -212,7 +208,7 @@ sub main
 	     -dbh => $dbh,
 	     -variables => $variables,
 	     -textconverters => $formatters,
-	     -cgi => new CGI('id='.$cgi->param('id')),
+	     -cgi => CGI::Fast->new({ id=>$cgi->param('id')}),
 	     );
 	$out->output($tree);
     }
@@ -247,11 +243,22 @@ sub main
 	     -dbh => $dbh,
 	     -variables => $variables,
 	     -textconverters => $formatters,
-	     -cgi => new CGI('id='.$cgi->param('id')),
+	     -cgi => CGI::Fast->new({id => $cgi->param('id') }),
 	     );
 	$out->output($tree);
     }
-    $dbh->disconnect();
 }
 
-main();
+my $dbh = DBI->connect($configuration->{-database},
+                       $configuration->{-databaseuser},
+                       $configuration->{-databasepass})
+    or die $DBI::errstr;
+$dbh->{AutoCommit} = 1;
+
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+    main($dbh, $cgi);
+}
+$dbh->disconnect();

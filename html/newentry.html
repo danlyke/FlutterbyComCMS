@@ -42,7 +42,7 @@ $fcmsweblog_title: New Entry
 <br><input type="text" name="_primary_url" size="80" value="" length="254"><br>
 <br>Enclosure URL (for audio weblog posts and the like):
 <br><input type="text" name="_enclosure_url" size="80" value="" length="254"><br>
-<br><textarea name="_text" rows="$textentryrows" cols="$textentrycols" wrap="physical"></textarea>
+<br><textarea wrap="soft" name="_text" rows="$textentryrows" cols="$textentrycols" wrap="physical"></textarea>
 <br>
 Format with: <select name="_texttype">
 <flutterbyquery sql="SELECT id AS texttype_id, name AS texttype_name FROM texttypes">

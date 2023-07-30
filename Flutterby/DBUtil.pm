@@ -9,6 +9,7 @@ use Try::Tiny;
 sub escapeToEntities($$@)
 {
     my ($cgi, $t, $log) = @_;
+    return $t;
     if (defined($t)) {
         if ($cgi->charset() eq 'utf-8') {
             use utf8;
@@ -43,7 +44,7 @@ sub escapeFieldsToEntitiesHash($@)
     
     for my $field (@_)
     {
-        my $t = decode utf8=>($cgi->param($field));
+        my $t = $cgi->param($field);
         $t =~ s/([\x{80}-\x{10ffff}])/sprintf('&#%d;', ord($1))/eg;
         $escaped{$field} = $t;
     }

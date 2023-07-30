@@ -2,6 +2,7 @@
 use strict;
 package Flutterby::Output::HTMLProcessed;
 use utf8::all;
+use bytes;
 use open ':std', ':encoding(UTF-8)';
 
 use HTML::Entities;
@@ -63,10 +64,10 @@ sub sendToOutput()
   {
     my ($self, $t) = @_;
     my ($r) = $self->{-outputdest};
-    
+
     if (!defined($r))
-      {
-	print $t;
+    {
+          print $t;
       }
     else
       {
@@ -348,6 +349,7 @@ sub process_tag_form()
 	$self->{-usedcgivariables} = {};
       }
 
+    $attributes->{encoding} = "utf-8";
     $self->outputTag($tag,$attributes,$childinfo,\&postprocess_tag_form);
     delete ($self->{-currentcgi});
     delete ($self->{-usedcgivariables});
@@ -524,7 +526,7 @@ sub process_tag_textarea()
         && defined($attributes->{'name'})
         && defined($self->{-currentcgi}->param($attributes->{'name'})))
     {
-        my $t = decode utf8=>($self->{-currentcgi}->param($attributes->{'name'}));
+        my $t = $self->{-currentcgi}->param($attributes->{'name'});
 #        $t =~ s/([\x{80}-\x{10ffff}])/"&".ord($1).";"/eg;
 #        while ($t =~ /^(.*?)([\x80-\x{ffff}])(.*)$/)
 #        {

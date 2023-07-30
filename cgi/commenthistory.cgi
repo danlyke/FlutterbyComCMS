@@ -1,7 +1,8 @@
 #!/usr/bin/perl -w
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI qw/-utf8/;
+use CGI::Fast (-utf8);
 #use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -18,17 +19,12 @@ use Flutterby::Util;
 use Flutterby::DBUtil;
 
 sub main
-  {
-    my ($cgi, $dbh,$userinfo);
-    $dbh = DBI->connect($configuration->{-database},
-			$configuration->{-databaseuser},
-			$configuration->{-databasepass})
-      or die $DBI::errstr;
-	$dbh->{AutoCommit} = 1;
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+{
+    my ($dbh, $cgi) = @_;
+    my ($userinfo);
 
     print $cgi->header(-type=>'text/html', -charset=>'utf-8');
-    print '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html>';
+
     my ($tree) = 
       Flutterby::HTML::LoadHTMLFileAsTree($configuration->{-htmlpath}.'commenthistory.html');
     
@@ -51,6 +47,20 @@ sub main
        },
       );
     $out->output($tree);
-    $dbh->disconnect();
   }
-&main;
+
+my $dbh = DBI->connect($configuration->{-database},
+			$configuration->{-databaseuser},
+			$configuration->{-databasepass})
+      or die $DBI::errstr;
+$dbh->{AutoCommit} = 1;
+
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+
+    main($dbh, $cgi);
+}
+
+$dbh->disconnect();

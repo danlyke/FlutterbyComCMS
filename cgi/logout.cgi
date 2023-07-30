@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI::Fast (-utf8);
 use DBI;
 use lib 'flutterby_cms';
 use Flutterby::Users;
@@ -11,11 +11,9 @@ $configuration ||= Flutterby::Config::load();
 use Flutterby::HTML;
 use Flutterby::Output::HTMLProcessed;
 
-sub main($)
+sub main($$)
   {
-    my ($dbh) = @_;
-    my ($cgi);
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+    my ($dbh, $cgi) = @_;
     my ($cookie);
     $cookie = $cgi->cookie(-name=>'id',
 			   -value=>'',
@@ -34,12 +32,18 @@ sub main($)
 	   -colorschemecgi => $cgi,
       );
     $out->output($tree);
-  }
+}
 my $dbh = DBI->connect($configuration->{-database},
 			$configuration->{-databaseuser},
 			$configuration->{-databasepass})
       or die DBI::errstr;
 $dbh->{AutoCommit} = 1;
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
 
-main($dbh);
+    main($dbh, $cgi);
+}
+  
 $dbh->disconnect;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI::Fast (-utf8);
 #use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -17,14 +17,9 @@ use Flutterby::DBUtil;
 
 
 sub main
-  {
-    my ($cgi, $dbh,$userinfo,$loginerror);
-    $dbh = DBI->connect($configuration->{-database},
-			$configuration->{-databaseuser},
-			$configuration->{-databasepass})
-      or die $DBI::errstr;
-	$dbh->{AutoCommit} = 1;
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+{
+    my ($dbh, $cgi) = @_;
+    my ($userinfo,$loginerror);
 
     ($userinfo,$loginerror) = Flutterby::Users::CheckLogin($cgi,$dbh);
 
@@ -112,6 +107,20 @@ sub main
 					   './edittopics.cgi',
 					   $loginerror);
       }
-    $dbh->disconnect;
   }
-&main;
+
+my     $dbh = DBI->connect($configuration->{-database},
+			$configuration->{-databaseuser},
+			$configuration->{-databasepass})
+      or die $DBI::errstr;
+	$dbh->{AutoCommit} = 1;
+
+my ($cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    $cgi->charset('utf-8');
+
+    main($dbh, $cgi);
+}
+
+$dbh->disconnect;

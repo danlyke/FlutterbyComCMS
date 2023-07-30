@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CGI;
+use CGI::Fast qw/-utf8/;
 use CGI::Carp qw(fatalsToBrowser);
 use DBI;
 use lib 'flutterby_cms';
@@ -20,6 +20,19 @@ use Flutterby::Spamcatcher;
 use Flutterby::Entries;
 
 use HTTP::Date;
+
+
+my $enc = Encode::find_encoding('UTF-8');
+my $org = \&FCGI::Stream::PRINT;
+no warnings 'redefine';
+local *FCGI::Stream::PRINT = sub {
+    my @OUTPUT = @_;
+    for (my $i = 1; $i < @_; $i++) {
+        $OUTPUT[$i] = $enc->encode($_[$i], Encode::FB_CROAK|Encode::LEAVE_SRC);
+    }
+    @_ = @OUTPUT;
+    goto $org;
+};
 
 
 sub LoadAllowCommentsArray($$$$)
@@ -190,11 +203,10 @@ sub DumpRefTree
     }
 }
 
-sub main($)
+sub main($$)
 {
-    my ($dbh) = @_;
-    my ($cgi, $userinfo,$loginerror,$continue,$cookie);
-    $cgi = CGI->new(); $cgi->charset('utf-8');
+    my ($dbh, $cgi) = @_;
+    my ($userinfo,$loginerror,$continue,$cookie);
 
     if (Flutterby::Spamcatcher::IsSpamReferer($ENV{'HTTP_REFERER'})) {
         print $cgi->header('text/plain');
@@ -216,7 +228,7 @@ sub main($)
             && defined($cgi->param('id'))) {
             my ($sql);
             $sql = 'INSERT INTO trackbacks(title, url, excerpt, entry_id) VALUES ('
-                .join(',', map { $dbh->quote($cgi->param($_)) } ('title','url','excerpt','id'))
+                .join(',', map { $dbh->quote(scalar($cgi->param($_))) } ('title','url','excerpt','id'))
                     .')';
             #	    print "VIEWENTRY: $sql\n";
 
@@ -430,13 +442,13 @@ EOF
                       map
                       {
                           'blogentries.id='.$dbh->quote($_);
-                      } (split (/\,/,$cgi->param('entry_id'))))
+                      } (split (/\,/,scalar($cgi->param('entry_id')))))
             if (defined($cgi->param('entry_id')));
         $query = join(' OR ',
                       map
                       {
                           'blogentries.id='.$dbh->quote($_);
-                      } (split (/\,/,$cgi->param('id'))))
+                      } (split (/\,/,scalar($cgi->param('id')))))
             if (defined($cgi->param('id')));
         if (defined($cgi->param('fromdate'))
             || defined($cgi->param('todate'))) {
@@ -512,7 +524,7 @@ EOF
                  -dbh => $dbh,
                  -variables => $variables,
                  -textconverters => $formatters,
-                 -cgi => new CGI('id='.$cgi->param('id')),
+                 -cgi => CGI::Fast->new({id => $cgi->param('id')}),
                  -outputfunc => sub
                  {
                      shift;
@@ -554,5 +566,9 @@ my $dbh = DBI->connect($configuration->{-database},
     or die DBI::errstr;
 $dbh->{AutoCommit} = 1;
 
-main($dbh);
+while (my $cgi = CGI::Fast->new())
+{
+    $CGI::PARAM_UTF8=1;# may be this????
+    main($dbh, $cgi);
+}
 $dbh->disconnect;

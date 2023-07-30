@@ -281,8 +281,11 @@ sub GetSqlIfLoginInfo($$)
             unless ($dbh->do($sql))
             {
                 $error = $dbh->errstr;
-                $error = 'Someone with that user name already exists in the database '
-                    if ($dbh->errstr =~ /Cannot insert a duplicate key into unique index/);
+                if ($dbh->errstr =~ /Cannot insert a duplicate key into unique index/) {
+                    $error = 'Someone with that user name already exists in the database '
+                } else {
+                    $error = "$error<br><br>$sql<br><br>";
+                }
             }
             if (!defined($error)) {
                 my ($fcmsweblog_id);
@@ -454,7 +457,7 @@ sub PrintLoginScreen
     foreach $k ($cgi->param) {
         $sql = 'INSERT INTO sessionvalues(ticket_id, name, value) VALUES('
             .join(',', map {$dbh->quote($_)} 
-                  ($sessionid, $k, $cgi->param($k))).')';
+                  ($sessionid, $k, scalar($cgi->param($k)))).')';
         $dbh->do($sql);
     }
     $variables->{'lid_target'} = "http://$ENV{'HTTP_HOST'}$ENV{'REQUEST_URI'}";
