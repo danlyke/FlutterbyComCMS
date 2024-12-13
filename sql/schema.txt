@@ -1,5 +1,5 @@
 
-CREATE FUNCTION plpgsql_call_handler () RETURNS OPAQUE AS
+CREATE FUNCTION plpgsql_call_handler () RETURNS TRIGGER AS
     '/usr/lib/postgresql/lib/plpgsql.so' LANGUAGE 'C';
 
 CREATE TRUSTED PROCEDURAL LANGUAGE 'plpgsql'
@@ -7,7 +7,7 @@ CREATE TRUSTED PROCEDURAL LANGUAGE 'plpgsql'
     LANCOMPILER 'PL/pgSQL';
 
 
-CREATE FUNCTION entered_stamp () RETURNS OPAQUE AS
+CREATE FUNCTION entered_stamp () RETURNS TRIGGER AS
 '    BEGIN
         IF NEW.entered ISNULL THEN
 	        NEW.entered := ''now'';
@@ -19,7 +19,7 @@ CREATE FUNCTION entered_stamp () RETURNS OPAQUE AS
     END;
 'LANGUAGE 'plpgsql';
 
-CREATE FUNCTION updated_stamp () RETURNS OPAQUE AS
+CREATE FUNCTION updated_stamp () RETURNS TRIGGER AS
 '    BEGIN
 	IF NEW.updated ISNULL THEN
 		NEW.updated := ''now'';
@@ -129,7 +129,7 @@ CREATE TABLE articleshistory (
 
 CREATE UNIQUE INDEX articleshistory_id ON articleshistory(id);
 
-CREATE FUNCTION articlehistoryupdate() RETURNS OPAQUE AS
+CREATE FUNCTION articlehistoryupdate() RETURNS TRIGGER AS
 '
   BEGIN
     IF NEW.updated ISNULL OR NEW.updated = OLD.updated THEN
@@ -153,7 +153,7 @@ CREATE TRIGGER articles_updated BEFORE UPDATE ON articles
   FOR EACH ROW EXECUTE PROCEDURE articlehistoryupdate();
 
 
-CREATE FUNCTION markarticlepublished () RETURNS OPAQUE AS
+CREATE FUNCTION markarticlepublished () RETURNS TRIGGER AS
 '
   BEGIN
     IF NEW.article_id != OLD.article_id THEN
@@ -281,7 +281,7 @@ CREATE TABLE weblogcomments (
 
 CREATE UNIQUE INDEX weblogcomments_id ON weblogcomments(id);
 
-CREATE FUNCTION updatecommentcount () RETURNS OPAQUE AS '
+CREATE FUNCTION updatecommentcount () RETURNS TRIGGER AS '
   BEGIN
     UPDATE weblogentries SET commentcount=
       (SELECT COUNT(id) FROM weblogcomments 
@@ -421,14 +421,14 @@ CREATE UNIQUE INDEX articletopicterms_id ON articletopicterms(id);
 CREATE UNIQUE INDEX articletopicidterm ON articletopicterms(topic_id,text);
 
 
-CREATE FUNCTION articletopicsondelete() RETURNS OPAQUE AS
+CREATE FUNCTION articletopicsondelete() RETURNS TRIGGER AS
 '
 	BEGIN
 		DELETE FROM articletopicterms WHERE topic_id=OLD.id;
 	END;
 'LANGUAGE 'plpgsql';
 
-CREATE FUNCTION articletopicsoninsert() RETURNS OPAQUE AS 
+CREATE FUNCTION articletopicsoninsert() RETURNS TRIGGER AS 
 '
 	DECLARE
 		i INTEGER;
@@ -505,7 +505,7 @@ CREATE TRIGGER photos_articles_updated AFTER UPDATE ON photos
 -- DROP TRIGGER photos_articles_ondel ON photos;
 
 
-CREATE FUNCTION markarticleondelete () RETURNS OPAQUE AS
+CREATE FUNCTION markarticleondelete () RETURNS TRIGGER AS
 '
   BEGIN
     IF OLD.article_id THEN
@@ -518,7 +518,7 @@ CREATE FUNCTION markarticleondelete () RETURNS OPAQUE AS
 
 drop function markarticleoninsert() cascade;
 
-CREATE FUNCTION markarticleoninsert () RETURNS OPAQUE AS
+CREATE FUNCTION markarticleoninsert () RETURNS TRIGGER AS
 '
   BEGIN
     IF (NEW.article_id IS NOT NULL) THEN
@@ -528,7 +528,7 @@ CREATE FUNCTION markarticleoninsert () RETURNS OPAQUE AS
   END;
 'LANGUAGE 'plpgsql';
 
-CREATE FUNCTION articleondelete () RETURNS OPAQUE AS
+CREATE FUNCTION articleondelete () RETURNS TRIGGER AS
 '
   BEGIN
     DELETE FROM articleshistory WHERE article_id = OLD.id;
