@@ -130,8 +130,10 @@ sub outputTag
 	$attributes->{alt} //= '';
 	if ($attributes->{align})
 	{
-	    $attributes->{style} //= '';
-	    $attributes->{style} = "float: $attributes->{align}; $attributes->{style}";
+            if (!$self->{-suppressimageformatting}) {
+                $attributes->{style} //= '';
+                $attributes->{style} = "float: $attributes->{align}; $attributes->{style}";
+            }
 	    delete $attributes->{align};
 	}
     }
@@ -165,7 +167,7 @@ sub outputTag
       }
     else
       {
-          &$outputfunc($self,">");
+          &$outputfunc($self,"/>");
           &$outputfunc($self,\&$post($self,$tag,$attributes,$childinfo))
               if (defined($post));
       }
