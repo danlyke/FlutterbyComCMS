@@ -79,9 +79,9 @@ sub FindInGlossary($$)
 	FormatString($self,$text);
 	$text =~ s/\s+/ /g;
 	$text =~ s/\&/%26/g;
-	$self->{-htmlparser}->parse('<a href="/wiki/'
-				    .HTML::Entities::encode($text).
-				    '"><img border="0" src="/adbanners/lookingglass.png" alt="[Wiki]" width="12" height="12"></a>');
+#	$self->{-htmlparser}->parse('<a href="/wiki/'
+#				    .HTML::Entities::encode($text).
+#				    '"><img border="0" src="/adbanners/lookingglass.png" alt="[Wiki]" width="12" height="12"></a>');
 	$self->{-htmlparser}->parse('</cite>');
     }
 }
